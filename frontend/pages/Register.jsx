@@ -11,38 +11,64 @@ function Register() {
         e.preventDefault();
 
         try {
-            const res = await fetch("http://localhost:5002/api/auth/register", {
+            const res = await fetch("http://localhost:3000/api/auth/register", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, email, password })
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username,
+                    email,
+                    password
+                })
             });
 
             const data = await res.json();
 
             if (!res.ok) {
-                alert(data.message);
-                return;
+                throw new Error(data.message);
             }
 
             localStorage.setItem("token", data.token);
             navigate("/dashboard");
 
         } catch (err) {
-            console.error(err);
-            alert("Errore di connessione");
+            alert(err.message);
         }
     };
 
     return (
         <div>
             <h2>Registrazione</h2>
+
             <form onSubmit={handleSubmit}>
-                <input type="text" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-                <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} />
+                <input
+                    type="text"
+                    placeholder="Username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                />
+
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                />
+
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                />
+
                 <button type="submit">Registrati</button>
             </form>
-            <p>Hai già un account? <a href="/">Login</a></p>
+
+            <p>
+                Hai già un account? <a href="/">Login</a>
+            </p>
         </div>
     );
 }

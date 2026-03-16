@@ -12,7 +12,7 @@ function AddExpense() {
         try {
             const token = localStorage.getItem("token");
 
-            const res = await fetch("http://localhost:5002/api/transactions", {
+            const res = await fetch("http://localhost:3000/api/transactions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
