@@ -287,7 +287,6 @@ function Dashboard() {
                                     <td>{item.paymentMethod || '-'}</td>
                                     <td>€ {Number(item.amount).toFixed(2)}</td>
                                     <td>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
                                             <button
                                                 className="table-action edit"
                                                 onClick={() => setEditingTransaction(item)}
@@ -301,7 +300,6 @@ function Dashboard() {
                                             >
                                                 Elimina
                                             </button>
-                                        </div>
                                     </td>
                                 </tr>
                             ))}

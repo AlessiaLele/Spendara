@@ -347,3 +347,18 @@ tbody td {
     border-color: #4f46e5;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
+
+.secondary-action-btn {
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #374151;
+    padding: 13px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.secondary-action-btn:hover {
+    background: #f9fafb;
+}

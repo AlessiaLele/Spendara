@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import '../styles/Dashboard.css';
 
-function AddTransactionForm({ onTransactionAdded }) {
+function AddTransactionForm({
+                                onTransactionAdded,
+                                editingTransaction,
+                                onEditFinished
+}) {
     const [formData, setFormData] = useState({
         type: 'expense',
         amount: '',
@@ -12,6 +16,23 @@ function AddTransactionForm({ onTransactionAdded }) {
     });
 
     const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        if (editingTransaction) {
+            setFormData({
+                type: editingTransaction.type || 'expense',
+                amount: String(editingTransaction.amount ?? '').replace('.', ','),
+                date: editingTransaction.date
+                    ? new Date(editingTransaction.date).toISOString().split('T')[0]
+                    : '',
+                category: editingTransaction.category || '',
+                description: editingTransaction.description || '',
+                paymentMethod: editingTransaction.paymentMethod || ''
+            });
+
+            setMessage('');
+        }
+    }, [editingTransaction]);
 
     const handleAmountChange = (value) => {
         let cleanedValue = value.replace(/[^0-9.,]/g, '');
@@ -77,54 +98,70 @@ function AddTransactionForm({ onTransactionAdded }) {
             return;
         }
 
-        if (!formData.date || !formData.category || !formData.description) {
+        if (!formData.date || !formData.category || !formData.type) {
             setMessage('Compila tutti i campi obbligatori');
             return;
         }
 
         try {
-            const response = await fetch('http://localhost:5000/api/transactions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    ...formData,
-                    amount: normalizedAmount
-                })
-            });
+                const isEditing = Boolean(editingTransaction);
 
-            const data = await response.json();
+                const url = isEditing
+                    ? `http://localhost:5000/api/transactions/${editingTransaction._id}`
+                    : 'http://localhost:5000/api/transactions';
 
-            if (!response.ok) {
-                setMessage(data.message || 'Errore nell’inserimento');
-                return;
+                const method = isEditing ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        ...formData,
+                        amount: normalizedAmount
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    setMessage(data.message || 'Errore nel salvataggio');
+                    return;
+                }
+
+                setMessage(
+                    isEditing
+                        ? 'Transazione modificata con successo'
+                        : 'Transazione aggiunta con successo'
+                );
+
+                setFormData({
+                    type: 'expense',
+                    amount: '',
+                    date: '',
+                    category: '',
+                    description: '',
+                    paymentMethod: ''
+                });
+
+                if (isEditing && onEditFinished) {
+                    onEditFinished();
+                }
+
+                onTransactionAdded();
+            } catch (error) {
+                console.error(error);
+                setMessage('Errore di connessione al server');
             }
-
-            setMessage('Spesa aggiunta con successo');
-
-            setFormData({
-                type: 'expense',
-                amount: '',
-                date: '',
-                category: '',
-                description: '',
-                paymentMethod: ''
-            });
-
-            onTransactionAdded();
-        } catch (error) {
-            console.error(error);
-            setMessage('Errore di connessione al server');
-        }
     };
 
     return (
         <section className="dashboard-card">
             <div className="card-header">
-                <h3>Aggiungi spesa</h3>
-                <span>Nuova transazione</span>
+                <h3>{editingTransaction ? 'Modifica transazione' : 'Aggiungi transazione'}</h3>
+                <span>{editingTransaction ? 'Modalità modifica' : 'Nuova transazione'}</span>
             </div>
 
             <form className="transaction-form" onSubmit={handleSubmit}>
@@ -181,8 +218,29 @@ function AddTransactionForm({ onTransactionAdded }) {
                 />
 
                 <button type="submit" className="primary-action-btn">
-                    Salva transazione
+                    {editingTransaction ? 'Aggiorna transazione' : 'Salva transazione'}
                 </button>
+
+                {editingTransaction && (
+                    <button
+                        type="button"
+                        className="secondary-action-btn"
+                        onClick={() => {
+                            setFormData({
+                                type: 'expense',
+                                amount: '',
+                                date: '',
+                                category: '',
+                                description: '',
+                                paymentMethod: ''
+                            });
+                            setMessage('');
+                            onEditFinished();
+                        }}
+                    >
+                        Annulla modifica
+                    </button>
+                )}
             </form>
 
             {message && <p className="form-message">{message}</p>}
