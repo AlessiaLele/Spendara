@@ -193,13 +193,21 @@ function AddTransactionForm({
                     onChange={handleChange}
                 />
 
-                <input
-                    type="text"
+                <select
                     name="category"
-                    placeholder="Categoria"
                     value={formData.category}
                     onChange={handleChange}
-                />
+                >
+                    <option value="">Seleziona categoria</option>
+                    <option value="Cibo">🍔 Cibo</option>
+                    <option value="Trasporti">🚗 Trasporti</option>
+                    <option value="Shopping">🛒 Shopping</option>
+                    <option value="Bollette">🧾 Bollette</option>
+                    <option value="Salute">💊 Salute</option>
+                    <option value="Svago">🎉 Svago</option>
+                    <option value="Stipendio">💼 Stipendio</option>
+                    <option value="Altro">📌 Altro</option>
+                </select>
 
                 <input
                     type="text"

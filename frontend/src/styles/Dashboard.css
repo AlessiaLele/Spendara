@@ -362,3 +362,13 @@ tbody td {
 .secondary-action-btn:hover {
     background: #f9fafb;
 }
+
+.amount-income {
+    color: #16a34a;
+    font-weight: 700;
+}
+
+.amount-expense {
+    color: #dc2626;
+    font-weight: 700;
+}

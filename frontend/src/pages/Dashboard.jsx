@@ -9,6 +9,20 @@ function Dashboard() {
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [editingTransaction, setEditingTransaction] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
+
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter((item) => {
+            const matchesSearch =
+                item.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesCategory =
+                selectedCategory === '' || item.category === selectedCategory;
+
+            return matchesSearch && matchesCategory;
+        });
+    }, [transactions, searchTerm, selectedCategory]);
 
     const fetchDashboardData = async () => {
         const token = localStorage.getItem('token');
@@ -127,6 +141,27 @@ function Dashboard() {
     const estimatedNextMonth = (totalExpenses * 1.1).toFixed(2);
     const budgetAlerts = categoryTotals.filter((item) => item.value > 300);
 
+    const getCategoryIcon = (category) => {
+        switch (category) {
+            case 'Cibo':
+                return '🍔';
+            case 'Trasporti':
+                return '🚗';
+            case 'Shopping':
+                return '🛒';
+            case 'Bollette':
+                return '🧾';
+            case 'Salute':
+                return '💊';
+            case 'Svago':
+                return '🎉';
+            case 'Stipendio':
+                return '💼';
+            default:
+                return '📌';
+        }
+    };
+
     if (loading) {
         return <div className="dashboard-wrapper">Caricamento dashboard...</div>;
     }
@@ -205,7 +240,7 @@ function Dashboard() {
                                 return (
                                     <div key={category.name} className="category-item">
                                         <div className="category-top">
-                                            <span>{category.name}</span>
+                                            <span>{getCategoryIcon(category.name)} {category.name}</span>
                                             <strong>€ {category.value.toFixed(2)}</strong>
                                         </div>
                                         <div className="progress-bar">
@@ -263,9 +298,11 @@ function Dashboard() {
                     <span>Elenco movimenti</span>
                 </div>
 
-                {transactions.length === 0 ? (
-                    <div className="empty-state">Non ci sono ancora transazioni.</div>
-                ) : (
+                {filteredTransactions.length === 0 ? (
+                    <div className="empty-state">Non ci sono ancora transazioni.
+                    <span>Inserisci la prima spesa o entrata per iniziare.</span>
+                        </div>
+                    ) : (
                     <div className="table-wrapper">
                         <table>
                             <thead>
@@ -279,13 +316,15 @@ function Dashboard() {
                             </tr>
                             </thead>
                             <tbody>
-                            {transactions.map((item) => (
+                            {filteredTransactions.map((item) => (
                                 <tr key={item._id}>
                                     <td>{item.description}</td>
-                                    <td>{item.category}</td>
+                                    <td>{getCategoryIcon(item.category)} {item.category}</td>
                                     <td>{new Date(item.date).toLocaleDateString()}</td>
                                     <td>{item.paymentMethod || '-'}</td>
-                                    <td>€ {Number(item.amount).toFixed(2)}</td>
+                                    <td className={item.type === 'income' ? 'amount-income' : 'amount-expense'}>
+                                        {item.type === 'income' ? '+' : '-'} € {Number(item.amount).toFixed(2)}
+                                    </td>
                                     <td>
                                             <button
                                                 className="table-action edit"
