@@ -2,6 +2,109 @@ import React, { useEffect, useMemo, useState } from 'react';
 import AddTransactionForm from '../components/AddTransactionForm';
 import '../styles/Dashboard.css';
 
+const DEFAULT_BUDGET = 1200;
+const PERIOD_LABELS = {
+    day: 'giorno',
+    month: 'mese',
+    year: 'anno'
+};
+
+const categoryIcons = {
+    Cibo: '🍔',
+    Trasporti: '🚗',
+    Shopping: '🛒',
+    Bollette: '🧾',
+    Salute: '💊',
+    Svago: '🎉',
+    Stipendio: '💼',
+    Altro: '📌'
+};
+
+const formatCurrency = (value) => `€ ${Number(value || 0).toFixed(2)}`;
+
+const getBudgetStorageKey = (userId) => `spendara_monthly_budget_${userId || 'guest'}`;
+
+const getCategoryIcon = (category) => categoryIcons[category] || '📌';
+
+const getDaysInCurrentPeriod = (period) => {
+    const now = new Date();
+
+    if (period === 'day') return 1;
+
+    if (period === 'year') {
+        const year = now.getFullYear();
+        const isLeap = new Date(year, 1, 29).getMonth() === 1;
+        return isLeap ? 366 : 365;
+    }
+
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+};
+
+const getElapsedDaysInCurrentPeriod = (period) => {
+    const now = new Date();
+
+    if (period === 'day') return 1;
+
+    if (period === 'year') {
+        const start = new Date(now.getFullYear(), 0, 1);
+        return Math.max(1, Math.floor((now - start) / 86400000) + 1);
+    }
+
+    return now.getDate();
+};
+
+const getPointLabel = (date, period) => {
+    const current = new Date(date);
+
+    if (period === 'year') {
+        return current.toLocaleDateString('it-IT', { month: 'short' });
+    }
+
+    return current.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+};
+
+const buildTrendData = (transactions, period) => {
+    const expenseTransactions = transactions.filter((item) => item.type === 'expense');
+    const totalsMap = new Map();
+
+    expenseTransactions.forEach((item) => {
+        const currentDate = new Date(item.date);
+        const key =
+            period === 'year'
+                ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
+                : currentDate.toISOString().split('T')[0];
+
+        const existing = totalsMap.get(key) || { total: 0, date: currentDate };
+        existing.total += Number(item.amount || 0);
+        totalsMap.set(key, existing);
+    });
+
+    return Array.from(totalsMap.entries())
+        .map(([key, value]) => ({
+            key,
+            label: getPointLabel(value.date, period),
+            total: value.total,
+            date: value.date
+        }))
+        .sort((a, b) => a.date - b.date);
+};
+
+const buildPolyline = (trendData) => {
+    if (!trendData.length) return '';
+
+    const width = 100;
+    const height = 100;
+    const maxValue = Math.max(...trendData.map((item) => item.total), 1);
+
+    return trendData
+        .map((item, index) => {
+            const x = trendData.length === 1 ? 50 : (index / (trendData.length - 1)) * width;
+            const y = height - (item.total / maxValue) * 82 - 9;
+            return `${x},${Math.max(6, Math.min(94, y))}`;
+        })
+        .join(' ');
+};
+
 function Dashboard() {
     const [user, setUser] = useState(null);
     const [transactions, setTransactions] = useState([]);
@@ -11,15 +114,14 @@ function Dashboard() {
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [budgetInput, setBudgetInput] = useState(String(DEFAULT_BUDGET));
+    const [savedBudget, setSavedBudget] = useState(DEFAULT_BUDGET);
 
     const filteredTransactions = useMemo(() => {
         return transactions.filter((item) => {
-            const matchesSearch =
-                item.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-            const matchesCategory =
-                selectedCategory === '' || item.category === selectedCategory;
-
+            const description = item.description || '';
+            const matchesSearch = description.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
     }, [transactions, searchTerm, selectedCategory]);
@@ -46,6 +148,11 @@ function Dashboard() {
             }
 
             setUser(profileData);
+
+            const budgetKey = getBudgetStorageKey(profileData.id || profileData._id);
+            const persistedBudget = Number(localStorage.getItem(budgetKey) || DEFAULT_BUDGET);
+            setSavedBudget(persistedBudget);
+            setBudgetInput(String(persistedBudget));
 
             const transactionsResponse = await fetch(
                 `http://localhost:5000/api/transactions?period=${period}`,
@@ -79,9 +186,7 @@ function Dashboard() {
     const handleDelete = async (id) => {
         const token = localStorage.getItem('token');
 
-        const confirmed = window.confirm('Vuoi davvero eliminare questa transazione?');
-
-        if (!confirmed) {
+        if (!window.confirm('Vuoi davvero eliminare questa transazione?')) {
             return;
         }
 
@@ -111,11 +216,14 @@ function Dashboard() {
         fetchDashboardData();
     }, [period]);
 
+    const expenseTransactions = useMemo(
+        () => transactions.filter((item) => item.type === 'expense'),
+        [transactions]
+    );
+
     const totalExpenses = useMemo(() => {
-        return transactions
-            .filter((item) => item.type === 'expense')
-            .reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    }, [transactions]);
+        return expenseTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    }, [expenseTransactions]);
 
     const totalIncome = useMemo(() => {
         return transactions
@@ -124,11 +232,18 @@ function Dashboard() {
     }, [transactions]);
 
     const balance = totalIncome - totalExpenses;
+    const elapsedDays = getElapsedDaysInCurrentPeriod(period);
+    const totalDays = getDaysInCurrentPeriod(period);
+    const averageDailyExpense = totalExpenses / elapsedDays;
+    const projectedTotal = averageDailyExpense * totalDays;
+    const budgetUsedPercentage =
+        savedBudget > 0 ? Math.min((totalExpenses / savedBudget) * 100, 999) : 0;
+    const budgetRemaining = savedBudget - totalExpenses;
 
     const categoryTotals = useMemo(() => {
         const totals = {};
 
-        transactions.forEach((item) => {
+        expenseTransactions.forEach((item) => {
             const category = item.category || 'Altro';
             totals[category] = (totals[category] || 0) + Number(item.amount || 0);
         });
@@ -136,30 +251,77 @@ function Dashboard() {
         return Object.entries(totals)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
-    }, [transactions]);
+    }, [expenseTransactions]);
+
+    const trendData = useMemo(() => buildTrendData(transactions, period), [transactions, period]);
+    const trendPolyline = useMemo(() => buildPolyline(trendData), [trendData]);
+
+    const uniqueCategories = useMemo(
+        () => Array.from(new Set(transactions.map((item) => item.category).filter(Boolean))).sort(),
+        [transactions]
+    );
+
+    const categorySuggestions = useMemo(() => {
+        return categoryTotals.slice(0, 5).map((item) => {
+            const share = totalExpenses > 0 ? item.value / totalExpenses : 0;
+            const suggestedBudget = savedBudget * share;
+            const projectedCategoryExpense = projectedTotal * share;
+            const isOverSuggested = item.value > suggestedBudget && suggestedBudget > 0;
+
+            return {
+                ...item,
+                share,
+                suggestedBudget,
+                projectedCategoryExpense,
+                isOverSuggested
+            };
+        });
+    }, [categoryTotals, totalExpenses, savedBudget, projectedTotal]);
+
+    const budgetAlerts = useMemo(() => {
+        const alerts = [];
+
+        if (savedBudget > 0 && totalExpenses > savedBudget) {
+            alerts.push(
+                `Hai già superato il budget del ${
+                    period === 'day' ? 'giorno' : PERIOD_LABELS[period]
+                } di ${formatCurrency(totalExpenses - savedBudget)}.`
+            );
+        } else if (savedBudget > 0 && projectedTotal > savedBudget) {
+            alerts.push(
+                `Con l'andamento attuale chiuderai il ${
+                    PERIOD_LABELS[period]
+                } sopra budget di circa ${formatCurrency(projectedTotal - savedBudget)}.`
+            );
+        }
+
+        categorySuggestions.forEach((item) => {
+            if (item.isOverSuggested) {
+                alerts.push(
+                    `La categoria ${item.name} sta consumando più del budget suggerito (${formatCurrency(
+                        item.value
+                    )} su ${formatCurrency(item.suggestedBudget)}).`
+                );
+            }
+        });
+
+        return alerts.slice(0, 4);
+    }, [savedBudget, totalExpenses, projectedTotal, period, categorySuggestions]);
 
     const estimatedNextMonth = (totalExpenses * 1.1).toFixed(2);
-    const budgetAlerts = categoryTotals.filter((item) => item.value > 300);
 
-    const getCategoryIcon = (category) => {
-        switch (category) {
-            case 'Cibo':
-                return '🍔';
-            case 'Trasporti':
-                return '🚗';
-            case 'Shopping':
-                return '🛒';
-            case 'Bollette':
-                return '🧾';
-            case 'Salute':
-                return '💊';
-            case 'Svago':
-                return '🎉';
-            case 'Stipendio':
-                return '💼';
-            default:
-                return '📌';
+    const saveBudget = () => {
+        const normalized = Number(String(budgetInput).replace(',', '.'));
+
+        if (Number.isNaN(normalized) || normalized <= 0) {
+            setMessage('Inserisci un budget mensile valido');
+            return;
         }
+
+        const budgetKey = getBudgetStorageKey(user?.id || user?._id);
+        localStorage.setItem(budgetKey, String(normalized));
+        setSavedBudget(normalized);
+        setMessage('Budget salvato con successo');
     };
 
     if (loading) {
@@ -281,10 +443,9 @@ function Dashboard() {
                         </div>
                     ) : (
                         <div className="alerts-list">
-                            {budgetAlerts.map((item) => (
-                                <div key={item.name} className="dashboard-alert warning">
-                                    La categoria <strong>{item.name}</strong> ha superato € 300
-                                    con un totale di € {item.value.toFixed(2)}.
+                            {budgetAlerts.map((alert) => (
+                                <div key={alert} className="dashboard-alert warning">
+                                    {alert}
                                 </div>
                             ))}
                         </div>
