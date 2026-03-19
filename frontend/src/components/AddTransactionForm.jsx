@@ -5,7 +5,7 @@ function AddTransactionForm({
                                 onTransactionAdded,
                                 editingTransaction,
                                 onEditFinished
-}) {
+                            }) {
     const [formData, setFormData] = useState({
         type: 'expense',
         amount: '',
@@ -98,63 +98,63 @@ function AddTransactionForm({
             return;
         }
 
-        if (!formData.date || !formData.category || !formData.type) {
+        if (!formData.date || !formData.category || !formData.type || !formData.description) {
             setMessage('Compila tutti i campi obbligatori');
             return;
         }
 
         try {
-                const isEditing = Boolean(editingTransaction);
+            const isEditing = Boolean(editingTransaction);
 
-                const url = isEditing
-                    ? `http://localhost:5000/api/transactions/${editingTransaction._id}`
-                    : 'http://localhost:5000/api/transactions';
+            const url = isEditing
+                ? `http://localhost:5000/api/transactions/${editingTransaction._id}`
+                : 'http://localhost:5000/api/transactions';
 
-                const method = isEditing ? 'PUT' : 'POST';
+            const method = isEditing ? 'PUT' : 'POST';
 
-                const response = await fetch(url, {
-                    method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        ...formData,
-                        amount: normalizedAmount
-                    })
-                });
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...formData,
+                    amount: normalizedAmount
+                })
+            });
 
-                const data = await response.json();
+            const data = await response.json();
 
-                if (!response.ok) {
-                    setMessage(data.message || 'Errore nel salvataggio');
-                    return;
-                }
-
-                setMessage(
-                    isEditing
-                        ? 'Transazione modificata con successo'
-                        : 'Transazione aggiunta con successo'
-                );
-
-                setFormData({
-                    type: 'expense',
-                    amount: '',
-                    date: '',
-                    category: '',
-                    description: '',
-                    paymentMethod: ''
-                });
-
-                if (isEditing && onEditFinished) {
-                    onEditFinished();
-                }
-
-                onTransactionAdded();
-            } catch (error) {
-                console.error(error);
-                setMessage('Errore di connessione al server');
+            if (!response.ok) {
+                setMessage(data.message || 'Errore nel salvataggio');
+                return;
             }
+
+            setMessage(
+                isEditing
+                    ? 'Transazione modificata con successo'
+                    : 'Transazione aggiunta con successo'
+            );
+
+            setFormData({
+                type: 'expense',
+                amount: '',
+                date: '',
+                category: '',
+                description: '',
+                paymentMethod: ''
+            });
+
+            if (isEditing && onEditFinished) {
+                onEditFinished();
+            }
+
+            onTransactionAdded();
+        } catch (error) {
+            console.error(error);
+            setMessage('Errore di connessione al server');
+        }
     };
 
     return (

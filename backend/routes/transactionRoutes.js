@@ -38,7 +38,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // POST nuova transazione
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { amount, date, category, description, paymentMethod } = req.body;
+        const { type, amount, date, category, description, paymentMethod } = req.body;
 
         if ( !type || !amount || !date || !category || !description) {
             return res.status(400).json({

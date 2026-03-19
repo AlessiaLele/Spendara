@@ -300,9 +300,9 @@ function Dashboard() {
 
                 {filteredTransactions.length === 0 ? (
                     <div className="empty-state">Non ci sono ancora transazioni.
-                    <span>Inserisci la prima spesa o entrata per iniziare.</span>
-                        </div>
-                    ) : (
+                        <span>Inserisci la prima spesa o entrata per iniziare.</span>
+                    </div>
+                ) : (
                     <div className="table-wrapper">
                         <table>
                             <thead>
@@ -326,19 +326,19 @@ function Dashboard() {
                                         {item.type === 'income' ? '+' : '-'} € {Number(item.amount).toFixed(2)}
                                     </td>
                                     <td>
-                                            <button
-                                                className="table-action edit"
-                                                onClick={() => setEditingTransaction(item)}
-                                            >
-                                                Modifica
-                                            </button>
+                                        <button
+                                            className="table-action edit"
+                                            onClick={() => setEditingTransaction(item)}
+                                        >
+                                            Modifica
+                                        </button>
 
-                                            <button
-                                                className="table-action delete"
-                                                onClick={() => handleDelete(item._id)}
-                                            >
-                                                Elimina
-                                            </button>
+                                        <button
+                                            className="table-action delete"
+                                            onClick={() => handleDelete(item._id)}
+                                        >
+                                            Elimina
+                                        </button>
                                     </td>
                                 </tr>
                             ))}

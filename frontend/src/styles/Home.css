@@ -125,38 +125,38 @@ body {
 }
 
 @media (max-width: 900px) {
-.hero-title {
+    .hero-title {
         font-size: 40px;
     }
 
-.features-section {
+    .features-section {
         grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 600px) {
-.home-page {
+    .home-page {
         padding: 20px 16px 40px;
     }
 
-.hero-section {
+    .hero-section {
         padding: 30px 10px;
     }
 
-.hero-title {
+    .hero-title {
         font-size: 32px;
     }
 
-.hero-subtitle {
+    .hero-subtitle {
         font-size: 16px;
     }
 
-.primary-btn,
-.secondary-btn {
+    .primary-btn,
+    .secondary-btn {
         width: 100%;
     }
 
-.hero-buttons {
+    .hero-buttons {
         flex-direction: column;
     }
 }
