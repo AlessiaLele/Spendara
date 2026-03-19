@@ -5,7 +5,12 @@ import {
     Cell,
     Tooltip,
     ResponsiveContainer,
-    Legend
+    Legend,
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid
 } from 'recharts';
 import AddTransactionForm from '../components/AddTransactionForm';
 import '../styles/Dashboard.css';
@@ -270,7 +275,7 @@ function Dashboard() {
         });
 
         return Object.entries(totals)
-            .map(([name, value]) => ({ name, value }))
+            .map(([name, value]) => ({name, value}))
             .sort((a, b) => b.value - a.value);
     }, [expenseTransactions]);
 
@@ -434,7 +439,7 @@ function Dashboard() {
                                             outerRadius={100}
                                             innerRadius={45}
                                             paddingAngle={2}
-                                            label={({ name, percent }) =>
+                                            label={({name, percent}) =>
                                                 `${name} ${(percent * 100).toFixed(0)}%`
                                             }
                                         >
@@ -445,10 +450,8 @@ function Dashboard() {
                                                 />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            formatter={(value) => formatCurrency(value)}
-                                        />
-                                        <Legend />
+                                        <Tooltip formatter={(value) => formatCurrency(value)}/>
+                                        <Legend/>
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -461,23 +464,23 @@ function Dashboard() {
                                     return (
                                         <div key={category.name} className="category-item">
                                             <div className="category-top">
-                                <span>
-                                    <span
-                                        className="legend-dot"
-                                        style={{
-                                            backgroundColor:
-                                                CHART_COLORS[index % CHART_COLORS.length]
-                                        }}
-                                    />
-                                    {getCategoryIcon(category.name)} {category.name}
-                                </span>
+                                            <span>
+                                                <span
+                                                    className="legend-dot"
+                                                    style={{
+                                                        backgroundColor:
+                                                            CHART_COLORS[index % CHART_COLORS.length]
+                                                    }}
+                                                />
+                                                {getCategoryIcon(category.name)} {category.name}
+                                            </span>
                                                 <strong>{formatCurrency(category.value)}</strong>
                                             </div>
 
                                             <div className="progress-bar">
                                                 <div
                                                     className="progress-fill"
-                                                    style={{ width: `${percentage}%` }}
+                                                    style={{width: `${percentage}%`}}
                                                 />
                                             </div>
 
@@ -489,6 +492,59 @@ function Dashboard() {
                                     );
                                 })}
                             </div>
+                        </div>
+                    )}
+                </section>
+
+                <section className="dashboard-card large-card">
+                    <div className="card-header">
+                        <h3>Andamento spese nel tempo</h3>
+                        <span>
+                        {period === 'day'
+                            ? 'Vista giornaliera'
+                            : period === 'month'
+                                ? 'Trend del mese'
+                                : 'Trend annuale'}
+                    </span>
+                    </div>
+
+                    {trendData.length === 0 ? (
+                        <div className="empty-state">
+                            Nessun dato disponibile per il grafico.
+                            <span>Aggiungi almeno una spesa per visualizzare l'andamento.</span>
+                        </div>
+                    ) : (
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={320}>
+                                <LineChart
+                                    data={trendData}
+                                    margin={{top: 10, right: 20, left: 0, bottom: 10}}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3"/>
+                                    <XAxis
+                                        dataKey="label"
+                                        tick={{fontSize: 12}}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        tickFormatter={(value) => `€${value}`}
+                                        tick={{fontSize: 12}}
+                                    />
+                                    <Tooltip
+                                        formatter={(value) => [formatCurrency(value), 'Spese']}
+                                        labelFormatter={(label) => `Data: ${label}`}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="total"
+                                        name="Spese"
+                                        stroke="#4F46E5"
+                                        strokeWidth={3}
+                                        dot={{r: 4}}
+                                        activeDot={{r: 6}}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     )}
                 </section>
@@ -535,7 +591,8 @@ function Dashboard() {
                 </div>
 
                 {filteredTransactions.length === 0 ? (
-                    <div className="empty-state">Non ci sono ancora transazioni.
+                    <div className="empty-state">
+                        Non ci sono ancora transazioni.
                         <span>Inserisci la prima spesa o entrata per iniziare.</span>
                     </div>
                 ) : (
@@ -554,7 +611,7 @@ function Dashboard() {
                             <tbody>
                             {filteredTransactions.map((item) => (
                                 <tr key={item._id}>
-                                    <td>{item.description}</td>
+                                    <td>{item.description || '-'}</td>
                                     <td>{getCategoryIcon(item.category)} {item.category}</td>
                                     <td>{new Date(item.date).toLocaleDateString()}</td>
                                     <td>{item.paymentMethod || '-'}</td>
@@ -586,5 +643,4 @@ function Dashboard() {
         </div>
     );
 }
-
 export default Dashboard;
