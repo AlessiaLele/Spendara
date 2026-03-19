@@ -1,4 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    ResponsiveContainer,
+    Legend
+} from 'recharts';
 import AddTransactionForm from '../components/AddTransactionForm';
 import '../styles/Dashboard.css';
 
@@ -19,6 +27,19 @@ const categoryIcons = {
     Stipendio: '💼',
     Altro: '📌'
 };
+
+const CHART_COLORS = [
+    '#4F46E5',
+    '#7C3AED',
+    '#06B6D4',
+    '#10B981',
+    '#F59E0B',
+    '#EF4444',
+    '#8B5CF6',
+    '#14B8A6',
+    '#F97316',
+    '#84CC16'
+];
 
 const formatCurrency = (value) => `€ ${Number(value || 0).toFixed(2)}`;
 
@@ -253,6 +274,13 @@ function Dashboard() {
             .sort((a, b) => b.value - a.value);
     }, [expenseTransactions]);
 
+    const pieChartData = useMemo(() => {
+        return categoryTotals.map((item) => ({
+            name: item.name,
+            value: Number(item.value.toFixed(2))
+        }));
+    }, [categoryTotals]);
+
     const trendData = useMemo(() => buildTrendData(transactions, period), [transactions, period]);
     const trendPolyline = useMemo(() => buildPolyline(trendData), [trendData]);
 
@@ -384,7 +412,7 @@ function Dashboard() {
                     onEditFinished={() => setEditingTransaction(null)}
                 />
 
-                <section className="dashboard-card">
+                <section className="dashboard-card large-card">
                     <div className="card-header">
                         <h3>Spese per categoria</h3>
                         <span>Distribuzione</span>
@@ -393,27 +421,74 @@ function Dashboard() {
                     {categoryTotals.length === 0 ? (
                         <div className="empty-state">Nessuna categoria disponibile.</div>
                     ) : (
-                        <div className="category-list">
-                            {categoryTotals.map((category) => {
-                                const percentage = totalExpenses > 0
-                                    ? (category.value / totalExpenses) * 100
-                                    : 0;
+                        <div className="category-chart-layout">
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height={320}>
+                                    <PieChart>
+                                        <Pie
+                                            data={pieChartData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={100}
+                                            innerRadius={45}
+                                            paddingAngle={2}
+                                            label={({ name, percent }) =>
+                                                `${name} ${(percent * 100).toFixed(0)}%`
+                                            }
+                                        >
+                                            {pieChartData.map((entry, index) => (
+                                                <Cell
+                                                    key={`cell-${entry.name}-${index}`}
+                                                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value) => formatCurrency(value)}
+                                        />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
 
-                                return (
-                                    <div key={category.name} className="category-item">
-                                        <div className="category-top">
-                                            <span>{getCategoryIcon(category.name)} {category.name}</span>
-                                            <strong>€ {category.value.toFixed(2)}</strong>
+                            <div className="category-list">
+                                {categoryTotals.map((category, index) => {
+                                    const percentage =
+                                        totalExpenses > 0 ? (category.value / totalExpenses) * 100 : 0;
+
+                                    return (
+                                        <div key={category.name} className="category-item">
+                                            <div className="category-top">
+                                <span>
+                                    <span
+                                        className="legend-dot"
+                                        style={{
+                                            backgroundColor:
+                                                CHART_COLORS[index % CHART_COLORS.length]
+                                        }}
+                                    />
+                                    {getCategoryIcon(category.name)} {category.name}
+                                </span>
+                                                <strong>{formatCurrency(category.value)}</strong>
+                                            </div>
+
+                                            <div className="progress-bar">
+                                                <div
+                                                    className="progress-fill"
+                                                    style={{ width: `${percentage}%` }}
+                                                />
+                                            </div>
+
+                                            <div className="progress-meta">
+                                                <span>{percentage.toFixed(1)}% del totale</span>
+                                                <span>{formatCurrency(category.value)}</span>
+                                            </div>
                                         </div>
-                                        <div className="progress-bar">
-                                            <div
-                                                className="progress-fill"
-                                                style={{ width: `${percentage}%` }}
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </section>
