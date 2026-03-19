@@ -314,32 +314,42 @@ function Dashboard() {
     const budgetAlerts = useMemo(() => {
         const alerts = [];
 
-        if (savedBudget > 0 && totalExpenses > savedBudget) {
+        if (savedBudget <= 0) {
+            return ['Inserisci un budget mensile per ricevere avvisi automatici.'];
+        }
+
+        const usedPercentage = (totalExpenses / savedBudget) * 100;
+
+        if (usedPercentage >= 100) {
             alerts.push(
-                `Hai già superato il budget del ${
-                    period === 'day' ? 'giorno' : PERIOD_LABELS[period]
-                } di ${formatCurrency(totalExpenses - savedBudget)}.`
+                `Hai superato il budget mensile di ${formatCurrency(totalExpenses - savedBudget)}.`
             );
-        } else if (savedBudget > 0 && projectedTotal > savedBudget) {
+        } else if (usedPercentage >= 80) {
             alerts.push(
-                `Con l'andamento attuale chiuderai il ${
-                    PERIOD_LABELS[period]
-                } sopra budget di circa ${formatCurrency(projectedTotal - savedBudget)}.`
+                `Hai già utilizzato il ${usedPercentage.toFixed(1)}% del budget mensile.`
+            );
+        }
+
+        if (projectedTotal > savedBudget) {
+            alerts.push(
+                `Con l'andamento attuale potresti chiudere il mese sopra budget di circa ${formatCurrency(
+                    projectedTotal - savedBudget
+                )}.`
             );
         }
 
         categorySuggestions.forEach((item) => {
             if (item.isOverSuggested) {
                 alerts.push(
-                    `La categoria ${item.name} sta consumando più del budget suggerito (${formatCurrency(
+                    `La categoria ${item.name} è sopra il budget suggerito: ${formatCurrency(
                         item.value
-                    )} su ${formatCurrency(item.suggestedBudget)}).`
+                    )} spesi su ${formatCurrency(item.suggestedBudget)}.`
                 );
             }
         });
 
         return alerts.slice(0, 4);
-    }, [savedBudget, totalExpenses, projectedTotal, period, categorySuggestions]);
+    }, [savedBudget, totalExpenses, projectedTotal, categorySuggestions]);
 
     const estimatedNextMonth = (totalExpenses * 1.1).toFixed(2);
 
@@ -568,19 +578,101 @@ function Dashboard() {
                         <span>Soglie</span>
                     </div>
 
-                    {budgetAlerts.length === 0 ? (
-                        <div className="dashboard-alert success">
-                            Nessuna categoria ha superato la soglia di € 300.
-                        </div>
-                    ) : (
-                        <div className="alerts-list">
-                            {budgetAlerts.map((alert) => (
-                                <div key={alert} className="dashboard-alert warning">
-                                    {alert}
+                    <div className="budget-box">
+                        <div className="budget-input-row">
+                            <div className="budget-input-group">
+                                <label htmlFor="monthly-budget">Budget mensile</label>
+                                <div className="currency-input-wrapper">
+                                    <span className="currency-symbol">€</span>
+                                    <input
+                                        id="monthly-budget"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        className="currency-input"
+                                        value={budgetInput}
+                                        onChange={(e) => setBudgetInput(e.target.value)}
+                                        placeholder="Inserisci il budget mensile"
+                                    />
                                 </div>
-                            ))}
+                            </div>
+
+                            <button
+                                type="button"
+                                className="primary-action-btn"
+                                onClick={saveBudget}
+                            >
+                                Salva budget
+                            </button>
                         </div>
-                    )}
+
+                        <div className="budget-summary">
+                            <div className="budget-pill">
+                                <p>Budget impostato</p>
+                                <strong>{formatCurrency(savedBudget)}</strong>
+                            </div>
+
+                            <div className="budget-pill">
+                                <p>Spesa attuale</p>
+                                <strong>{formatCurrency(totalExpenses)}</strong>
+                            </div>
+
+                            <div className="budget-pill">
+                                <p>Residuo</p>
+                                <strong>{formatCurrency(budgetRemaining)}</strong>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="budget-progress-label">
+                                <span>Budget utilizzato</span>
+                                <span>{budgetUsedPercentage.toFixed(1)}%</span>
+                            </div>
+
+                            <div className="budget-progress">
+                                <div
+                                    className="budget-progress-fill"
+                                    style={{ width: `${Math.min(budgetUsedPercentage, 100)}%` }}
+                                />
+                            </div>
+                        </div>
+
+                        {savedBudget > 0 && (
+                            <div className="budget-status-row">
+                                {budgetUsedPercentage < 75 && (
+                                    <span className="badge success">Situazione sotto controllo</span>
+                                )}
+
+                                {budgetUsedPercentage >= 75 && budgetUsedPercentage < 100 && (
+                                    <span className="badge warning">Budget quasi esaurito</span>
+                                )}
+
+                                {budgetUsedPercentage >= 100 && (
+                                    <span className="badge danger">Budget superato</span>
+                                )}
+                            </div>
+                        )}
+
+                        {budgetAlerts.length === 0 ? (
+                            <div className="dashboard-alert success">
+                                Nessun avviso: la spesa è coerente con il budget impostato.
+                            </div>
+                        ) : (
+                            <div className="alerts-list">
+                                {budgetAlerts.map((alert) => {
+                                    const alertClass = alert.toLowerCase().includes('superato')
+                                        ? 'error'
+                                        : 'warning';
+
+                                    return (
+                                        <div key={alert} className={`dashboard-alert ${alertClass}`}>
+                                            {alert}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </section>
             </div>
 
