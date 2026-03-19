@@ -4,11 +4,11 @@ const transactionSchema = new mongoose.Schema(
     {
         user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         type: { type: String, enum: ['income', 'expense'], default: 'expense', required: true },
-        amount: { type: Number, required: true },
+        amount: { type: Number, required: true, min: [0.01, 'L’importo deve essere maggiore di 0'] },
         date: { type: Date, required: true },
         category: { type: String, required: true, trim: true },
         description: { type: String, required: true, trim: true },
-        paymentMethod: { type: String, default: '' }
+        paymentMethod: { type: String, default: '', trim: true }
     },
     { timestamps: true }
 );

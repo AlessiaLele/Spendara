@@ -40,16 +40,28 @@ router.post('/', authMiddleware, async (req, res) => {
     try {
         const { type, amount, date, category, description, paymentMethod } = req.body;
 
-        if ( !type || !amount || !date || !category || !description) {
+        if ( !type || amount === undefined || !date || !category ) {
             return res.status(400).json({
                 message: 'Tipo, importo, data, categoria e descrizione sono obbligatori'
+            });
+        }
+
+        if (!['income', 'expense'].includes(type)) {
+            return res.status(400).json({
+                message: "Il tipo deve essere 'income' oppure 'expense'"
+            });
+        }
+
+        if (isNaN(amount) || Number(amount) < 0) {
+            return res.status(400).json({
+                message: "L'importo deve essere un numero maggiore o uguale a 0"
             });
         }
 
         const newTransaction = new Transaction({
             user: req.user.id,
             type,
-            amount,
+            amount: Number(amount),
             date,
             category,
             description,
@@ -79,7 +91,19 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
         const { type, amount, date, category, description, paymentMethod } = req.body;
 
-        transaction.amount = amount ?? transaction.amount;
+        if (type !== undefined && !['income', 'expense'].includes(type)) {
+            return res.status(400).json({
+                message: "Il tipo deve essere 'income' oppure 'expense'"
+            });
+        }
+
+        if (amount !== undefined && (isNaN(amount) || Number(amount) < 0)) {
+            return res.status(400).json({
+                message: "L'importo deve essere un numero maggiore o uguale a 0"
+            });
+        }
+
+        transaction.amount = amount !== undefined ? Number(amount) : transaction.amount;
         transaction.date = date ?? transaction.date;
         transaction.category = category ?? transaction.category;
         transaction.description = description ?? transaction.description;
