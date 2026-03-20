@@ -126,7 +126,15 @@
 
 .dashboard-main-grid {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
+    align-items: stretch;
+}
+
+.dashboard-analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 18px;
     margin-bottom: 24px;
 }
@@ -420,10 +428,9 @@ tbody tr:hover {
 
 .dashboard-alert {
     padding: 14px 16px;
-    border-radius: 14px;
-    margin-bottom: 14px;
-    line-height: 1.5;
-    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 14px;
+    border-left: 6px solid transparent;
 }
 
 .dashboard-alert.error {
@@ -435,13 +442,13 @@ tbody tr:hover {
 .dashboard-alert.success {
     background: #ecfdf5;
     color: #065f46;
-    border-color: #bbf7d0;
+    border-left-color: #bbf7d0;
 }
 
 .dashboard-alert.warning {
     background: #fff7ed;
     color: #9a3412;
-    border-color: #fed7aa;
+    border-left-color: #fed7aa;
 }
 
 .transaction-form {
@@ -628,15 +635,15 @@ tbody tr:hover {
 
 .chart-container {
     width: 100%;
-    height: 320px;
-    min-height: 320px;
+    height: 340px;
+    min-height: 340px;
 }
 
 .category-chart-layout {
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 24px;
+    align-items: center;
 }
 
 .legend-dot {
@@ -661,7 +668,7 @@ tbody tr:hover {
 .budget-box {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 20px;
 }
 
 .budget-label {
@@ -675,14 +682,69 @@ tbody tr:hover {
 .budget-input-row {
     display: flex;
     gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
+}
+
+.budget-input-box {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 16px;
 }
 
 .budget-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    gap: 16px;
+}
+
+.budget-input-box label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.budget-card {
+    border-radius: 16px;
+    padding: 18px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.04);
+    transition: transform 0.15s ease;
+}
+
+.budget-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.budget-card:hover {
+    transform: translateY(-2px);
+}
+
+.budget-card p {
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.budget-card h3 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.budget-card.primary {
+    border-left: 5px solid #4f46e5;
+}
+
+.budget-card.info {
+    border-left: 5px solid #0ea5e9;
+}
+
+.budget-card.success {
+    border-left: 5px solid #22c55e;
 }
 
 .budget-pill {
@@ -713,9 +775,23 @@ tbody tr:hover {
     color: #374151;
 }
 
+.budget-progress-box {
+    background: #f9fafb;
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+.budget-progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+
 .budget-progress {
-    width: 100%;
-    height: 12px;
+    height: 14px;
     background: #e5e7eb;
     border-radius: 999px;
     overflow: hidden;
@@ -725,18 +801,19 @@ tbody tr:hover {
     height: 100%;
     border-radius: 999px;
     background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
-    transition: width 0.3s ease;
+    transition: width 0.4s ease;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 900px) {
     .budget-summary {
         grid-template-columns: 1fr;
     }
+
+    .budget-input-row {
+    flex-direction: column;
+    }
 }
 
-@media (max-width: 700px) {
-    .budget-input-row {
-        flex-direction: column;
-        align-items: stretch;
-    }
+.full-width {
+    grid-column: 1 / -1;
 }

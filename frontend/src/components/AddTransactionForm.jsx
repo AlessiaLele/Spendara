@@ -220,7 +220,7 @@ function AddTransactionForm({
                 <input
                     type="text"
                     name="paymentMethod"
-                    placeholder="Metodo di pagamento (opzionale)"
+                    placeholder="Metodo di pagamento"
                     value={formData.paymentMethod}
                     onChange={handleChange}
                 />

@@ -16,11 +16,6 @@ import AddTransactionForm from '../components/AddTransactionForm';
 import '../styles/Dashboard.css';
 
 const DEFAULT_BUDGET = 1200;
-const PERIOD_LABELS = {
-    day: 'giorno',
-    month: 'mese',
-    year: 'anno'
-};
 
 const categoryIcons = {
     Cibo: '🍔',
@@ -113,22 +108,6 @@ const buildTrendData = (transactions, period) => {
             date: value.date
         }))
         .sort((a, b) => a.date - b.date);
-};
-
-const buildPolyline = (trendData) => {
-    if (!trendData.length) return '';
-
-    const width = 100;
-    const height = 100;
-    const maxValue = Math.max(...trendData.map((item) => item.total), 1);
-
-    return trendData
-        .map((item, index) => {
-            const x = trendData.length === 1 ? 50 : (index / (trendData.length - 1)) * width;
-            const y = height - (item.total / maxValue) * 82 - 9;
-            return `${x},${Math.max(6, Math.min(94, y))}`;
-        })
-        .join(' ');
 };
 
 function Dashboard() {
@@ -275,7 +254,7 @@ function Dashboard() {
         });
 
         return Object.entries(totals)
-            .map(([name, value]) => ({name, value}))
+            .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
     }, [expenseTransactions]);
 
@@ -287,12 +266,6 @@ function Dashboard() {
     }, [categoryTotals]);
 
     const trendData = useMemo(() => buildTrendData(transactions, period), [transactions, period]);
-    const trendPolyline = useMemo(() => buildPolyline(trendData), [trendData]);
-
-    const uniqueCategories = useMemo(
-        () => Array.from(new Set(transactions.map((item) => item.category).filter(Boolean))).sort(),
-        [transactions]
-    );
 
     const categorySuggestions = useMemo(() => {
         return categoryTotals.slice(0, 5).map((item) => {
@@ -438,7 +411,7 @@ function Dashboard() {
                     ) : (
                         <div className="category-chart-layout">
                             <div className="chart-container">
-                                <ResponsiveContainer width="100%" height={320}>
+                                <ResponsiveContainer width="100%" height={340}>
                                     <PieChart>
                                         <Pie
                                             data={pieChartData}
@@ -446,10 +419,10 @@ function Dashboard() {
                                             nameKey="name"
                                             cx="50%"
                                             cy="50%"
-                                            outerRadius={100}
-                                            innerRadius={45}
+                                            outerRadius={120}
+                                            innerRadius={55}
                                             paddingAngle={2}
-                                            label={({name, percent}) =>
+                                            label={({ name, percent }) =>
                                                 `${name} ${(percent * 100).toFixed(0)}%`
                                             }
                                         >
@@ -460,8 +433,8 @@ function Dashboard() {
                                                 />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value) => formatCurrency(value)}/>
-                                        <Legend/>
+                                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                                        <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -474,23 +447,23 @@ function Dashboard() {
                                     return (
                                         <div key={category.name} className="category-item">
                                             <div className="category-top">
-                                            <span>
-                                                <span
-                                                    className="legend-dot"
-                                                    style={{
-                                                        backgroundColor:
-                                                            CHART_COLORS[index % CHART_COLORS.length]
-                                                    }}
-                                                />
-                                                {getCategoryIcon(category.name)} {category.name}
-                                            </span>
+                                                <span>
+                                                    <span
+                                                        className="legend-dot"
+                                                        style={{
+                                                            backgroundColor:
+                                                                CHART_COLORS[index % CHART_COLORS.length]
+                                                        }}
+                                                    />
+                                                    {getCategoryIcon(category.name)} {category.name}
+                                                </span>
                                                 <strong>{formatCurrency(category.value)}</strong>
                                             </div>
 
                                             <div className="progress-bar">
                                                 <div
                                                     className="progress-fill"
-                                                    style={{width: `${percentage}%`}}
+                                                    style={{ width: `${percentage}%` }}
                                                 />
                                             </div>
 
@@ -505,60 +478,9 @@ function Dashboard() {
                         </div>
                     )}
                 </section>
+            </div>
 
-                <section className="dashboard-card large-card">
-                    <div className="card-header">
-                        <h3>Andamento spese nel tempo</h3>
-                        <span>
-                        {period === 'day'
-                            ? 'Vista giornaliera'
-                            : period === 'month'
-                                ? 'Trend del mese'
-                                : 'Trend annuale'}
-                    </span>
-                    </div>
-
-                    {trendData.length === 0 ? (
-                        <div className="empty-state">
-                            Nessun dato disponibile per il grafico.
-                            <span>Aggiungi almeno una spesa per visualizzare l'andamento.</span>
-                        </div>
-                    ) : (
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={320}>
-                                <LineChart
-                                    data={trendData}
-                                    margin={{top: 10, right: 20, left: 0, bottom: 10}}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3"/>
-                                    <XAxis
-                                        dataKey="label"
-                                        tick={{fontSize: 12}}
-                                        interval="preserveStartEnd"
-                                    />
-                                    <YAxis
-                                        tickFormatter={(value) => `€${value}`}
-                                        tick={{fontSize: 12}}
-                                    />
-                                    <Tooltip
-                                        formatter={(value) => [formatCurrency(value), 'Spese']}
-                                        labelFormatter={(label) => `Data: ${label}`}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="total"
-                                        name="Spese"
-                                        stroke="#4F46E5"
-                                        strokeWidth={3}
-                                        dot={{r: 4}}
-                                        activeDot={{r: 6}}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </section>
-
+            <div className="dashboard-secondary-grid">
                 <section className="dashboard-card">
                     <div className="card-header">
                         <h3>Previsione spese</h3>
@@ -575,13 +497,14 @@ function Dashboard() {
                 <section className="dashboard-card">
                     <div className="card-header">
                         <h3>Budget e avvisi</h3>
-                        <span>Soglie</span>
+                        <span>Mensile</span>
                     </div>
 
                     <div className="budget-box">
-                        <div className="budget-input-row">
-                            <div className="budget-input-group">
-                                <label htmlFor="monthly-budget">Budget mensile</label>
+                        <div className="budget-input-box">
+                            <label htmlFor="monthly-budget">Imposta budget mensile</label>
+
+                            <div className="budget-input-row">
                                 <div className="currency-input-wrapper">
                                     <span className="currency-symbol">€</span>
                                     <input
@@ -589,44 +512,44 @@ function Dashboard() {
                                         type="number"
                                         min="0"
                                         step="0.01"
-                                        className="currency-input"
                                         value={budgetInput}
                                         onChange={(e) => setBudgetInput(e.target.value)}
-                                        placeholder="Inserisci il budget mensile"
+                                        className="currency-input"
+                                        placeholder="Es. 1200"
                                     />
                                 </div>
-                            </div>
 
-                            <button
-                                type="button"
-                                className="primary-action-btn"
-                                onClick={saveBudget}
-                            >
-                                Salva budget
-                            </button>
+                                <button
+                                    type="button"
+                                    className="primary-action-btn"
+                                    onClick={saveBudget}
+                                >
+                                    Salva budget
+                                </button>
+                            </div>
                         </div>
 
                         <div className="budget-summary">
-                            <div className="budget-pill">
-                                <p>Budget impostato</p>
-                                <strong>{formatCurrency(savedBudget)}</strong>
+                            <div className="budget-card primary">
+                                <p>Budget mensile</p>
+                                <h3>{formatCurrency(savedBudget)}</h3>
                             </div>
 
-                            <div className="budget-pill">
-                                <p>Spesa attuale</p>
-                                <strong>{formatCurrency(totalExpenses)}</strong>
+                            <div className="budget-card info">
+                                <p>Speso</p>
+                                <h3>{formatCurrency(totalExpenses)}</h3>
                             </div>
 
-                            <div className="budget-pill">
+                            <div className="budget-card success">
                                 <p>Residuo</p>
-                                <strong>{formatCurrency(budgetRemaining)}</strong>
+                                <h3>{formatCurrency(budgetRemaining)}</h3>
                             </div>
                         </div>
 
-                        <div>
-                            <div className="budget-progress-label">
-                                <span>Budget utilizzato</span>
-                                <span>{budgetUsedPercentage.toFixed(1)}%</span>
+                        <div className="budget-progress-box">
+                            <div className="budget-progress-header">
+                                <span>Utilizzo budget</span>
+                                <strong>{budgetUsedPercentage.toFixed(1)}%</strong>
                             </div>
 
                             <div className="budget-progress">
@@ -659,20 +582,69 @@ function Dashboard() {
                             </div>
                         ) : (
                             <div className="alerts-list">
-                                {budgetAlerts.map((alert) => {
-                                    const alertClass = alert.toLowerCase().includes('superato')
-                                        ? 'error'
-                                        : 'warning';
-
-                                    return (
-                                        <div key={alert} className={`dashboard-alert ${alertClass}`}>
-                                            {alert}
-                                        </div>
-                                    );
-                                })}
+                                {budgetAlerts.map((alert, index) => (
+                                    <div key={index} className="dashboard-alert warning">
+                                        {alert}
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
+                </section>
+            </div>
+
+            <div className="dashboard-analytics-grid">
+                <section className="dashboard-card large-card full-width">
+                    <div className="card-header">
+                        <h3>Andamento spese nel tempo</h3>
+                        <span>
+                            {period === 'day'
+                                ? 'Vista giornaliera'
+                                : period === 'month'
+                                    ? 'Trend del mese'
+                                    : 'Trend annuale'}
+                        </span>
+                    </div>
+
+                    {trendData.length === 0 ? (
+                        <div className="empty-state">
+                            Nessun dato disponibile per il grafico.
+                            <span>Aggiungi almeno una spesa per visualizzare l'andamento.</span>
+                        </div>
+                    ) : (
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={340}>
+                                <LineChart
+                                    data={trendData}
+                                    margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis
+                                        dataKey="label"
+                                        tick={{ fontSize: 12 }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        tickFormatter={(value) => `€${value}`}
+                                        tick={{ fontSize: 12 }}
+                                    />
+                                    <Tooltip
+                                        formatter={(value) => [formatCurrency(value), 'Spese']}
+                                        labelFormatter={(label) => `Data: ${label}`}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="total"
+                                        name="Spese"
+                                        stroke="#4F46E5"
+                                        strokeWidth={3}
+                                        dot={{ r: 4 }}
+                                        activeDot={{ r: 6 }}
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    )}
                 </section>
             </div>
 
@@ -704,11 +676,20 @@ function Dashboard() {
                             {filteredTransactions.map((item) => (
                                 <tr key={item._id}>
                                     <td>{item.description || '-'}</td>
-                                    <td>{getCategoryIcon(item.category)} {item.category}</td>
+                                    <td>
+                                        {getCategoryIcon(item.category)} {item.category}
+                                    </td>
                                     <td>{new Date(item.date).toLocaleDateString()}</td>
                                     <td>{item.paymentMethod || '-'}</td>
-                                    <td className={item.type === 'income' ? 'amount-income' : 'amount-expense'}>
-                                        {item.type === 'income' ? '+' : '-'} € {Number(item.amount).toFixed(2)}
+                                    <td
+                                        className={
+                                            item.type === 'income'
+                                                ? 'amount-income'
+                                                : 'amount-expense'
+                                        }
+                                    >
+                                        {item.type === 'income' ? '+' : '-'} €{' '}
+                                        {Number(item.amount).toFixed(2)}
                                     </td>
                                     <td>
                                         <button
@@ -735,4 +716,5 @@ function Dashboard() {
         </div>
     );
 }
+
 export default Dashboard;
