@@ -43,7 +43,7 @@ function Register() {
 
             // piccolo delay per vedere il messaggio
             setTimeout(() => {
-                navigate('/');
+                navigate('/login');
             }, 1200);
 
         } catch (error) {

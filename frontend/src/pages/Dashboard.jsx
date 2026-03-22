@@ -1,344 +1,310 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     PieChart,
     Pie,
     Cell,
     Tooltip,
     ResponsiveContainer,
-    Legend,
-    LineChart,
-    Line,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
-    CartesianGrid
+    CartesianGrid,
+    Legend
 } from 'recharts';
 import AddTransactionForm from '../components/AddTransactionForm';
+import { buildApiUrl } from '../services/api';
 import '../styles/Dashboard.css';
 
-const DEFAULT_BUDGET = 1200;
+const COLORS = ['#4f46e5', '#7c3aed', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444'];
 
-const categoryIcons = {
-    Cibo: '🍔',
-    Trasporti: '🚗',
-    Shopping: '🛒',
-    Bollette: '🧾',
-    Salute: '💊',
-    Svago: '🎉',
-    Stipendio: '💼',
-    Altro: '📌'
-};
+export default function Dashboard() {
+    const navigate = useNavigate();
 
-const CHART_COLORS = [
-    '#4F46E5',
-    '#7C3AED',
-    '#06B6D4',
-    '#10B981',
-    '#F59E0B',
-    '#EF4444',
-    '#8B5CF6',
-    '#14B8A6',
-    '#F97316',
-    '#84CC16'
-];
-
-const formatCurrency = (value) => `€ ${Number(value || 0).toFixed(2)}`;
-
-const getBudgetStorageKey = (userId) => `spendara_monthly_budget_${userId || 'guest'}`;
-
-const getCategoryIcon = (category) => categoryIcons[category] || '📌';
-
-const getDaysInCurrentPeriod = (period) => {
-    const now = new Date();
-
-    if (period === 'day') return 1;
-
-    if (period === 'year') {
-        const year = now.getFullYear();
-        const isLeap = new Date(year, 1, 29).getMonth() === 1;
-        return isLeap ? 366 : 365;
-    }
-
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-};
-
-const getElapsedDaysInCurrentPeriod = (period) => {
-    const now = new Date();
-
-    if (period === 'day') return 1;
-
-    if (period === 'year') {
-        const start = new Date(now.getFullYear(), 0, 1);
-        return Math.max(1, Math.floor((now - start) / 86400000) + 1);
-    }
-
-    return now.getDate();
-};
-
-const getPointLabel = (date, period) => {
-    const current = new Date(date);
-
-    if (period === 'year') {
-        return current.toLocaleDateString('it-IT', { month: 'short' });
-    }
-
-    return current.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
-};
-
-const buildTrendData = (transactions, period) => {
-    const expenseTransactions = transactions.filter((item) => item.type === 'expense');
-    const totalsMap = new Map();
-
-    expenseTransactions.forEach((item) => {
-        const currentDate = new Date(item.date);
-        const key =
-            period === 'year'
-                ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`
-                : currentDate.toISOString().split('T')[0];
-
-        const existing = totalsMap.get(key) || { total: 0, date: currentDate };
-        existing.total += Number(item.amount || 0);
-        totalsMap.set(key, existing);
-    });
-
-    return Array.from(totalsMap.entries())
-        .map(([key, value]) => ({
-            key,
-            label: getPointLabel(value.date, period),
-            total: value.total,
-            date: value.date
-        }))
-        .sort((a, b) => a.date - b.date);
-};
-
-function Dashboard() {
     const [user, setUser] = useState(null);
-    const [transactions, setTransactions] = useState([]);
     const [period, setPeriod] = useState('month');
-    const [message, setMessage] = useState('');
+    const [monthlyBudget, setMonthlyBudget] = useState(
+        Number(localStorage.getItem('monthlyBudget')) || 0
+    );
+
+    const [analytics, setAnalytics] = useState(null);
+    const [transactions, setTransactions] = useState([]);
+
     const [loading, setLoading] = useState(true);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
+    const [transactionsLoading, setTransactionsLoading] = useState(false);
+    const [error, setError] = useState('');
+
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [budgetInput, setBudgetInput] = useState(String(DEFAULT_BUDGET));
-    const [savedBudget, setSavedBudget] = useState(DEFAULT_BUDGET);
 
-    const filteredTransactions = useMemo(() => {
-        return transactions.filter((item) => {
-            const description = item.description || '';
-            const matchesSearch = description.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesCategory = selectedCategory === '' || item.category === selectedCategory;
-            return matchesSearch && matchesCategory;
-        });
-    }, [transactions, searchTerm, selectedCategory]);
+    const token = localStorage.getItem('token');
 
-    const fetchDashboardData = async () => {
-        const token = localStorage.getItem('token');
+    useEffect(() => {
+        if (!token) {
+            navigate('/login');
+            return;
+        }
 
+        fetchInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (!token) return;
+        fetchAnalytics();
+        fetchTransactions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [period, monthlyBudget]);
+
+    async function fetchInitialData() {
         try {
             setLoading(true);
+            setError('');
 
-            const profileResponse = await fetch('http://localhost:5000/api/auth/me', {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
+            await Promise.all([
+                fetchUser(),
+                fetchAnalytics(),
+                fetchTransactions()
+            ]);
+        } catch (err) {
+            console.error(err);
+            setError('Errore durante il caricamento della dashboard');
+        } finally {
+            setLoading(false);
+        }
+    }
 
-            const profileData = await profileResponse.json();
-
-            if (!profileResponse.ok) {
-                setMessage(profileData.message || 'Errore nel recupero profilo');
-                setLoading(false);
-                return;
+    async function fetchUser() {
+        const response = await fetch(buildApiUrl('/api/auth/me'), {
+            headers: {
+                Authorization: `Bearer ${token}`
             }
+        });
 
-            setUser(profileData);
+        if (response.status === 401) {
+            handleLogout();
+            return;
+        }
 
-            const budgetKey = getBudgetStorageKey(profileData.id || profileData._id);
-            const persistedBudget = Number(localStorage.getItem(budgetKey) || DEFAULT_BUDGET);
-            setSavedBudget(persistedBudget);
-            setBudgetInput(String(persistedBudget));
+        if (!response.ok) {
+            throw new Error('Errore nel recupero utente');
+        }
 
-            const transactionsResponse = await fetch(
-                `http://localhost:5000/api/transactions?period=${period}`,
+        const data = await response.json();
+        setUser(data);
+    }
+
+    async function fetchAnalytics() {
+        try {
+            setAnalyticsLoading(true);
+
+            const response = await fetch(
+                buildApiUrl(`/api/analytics/overview?period=${period}&budget=${monthlyBudget}`),
                 {
-                    method: 'GET',
                     headers: {
                         Authorization: `Bearer ${token}`
                     }
                 }
             );
 
-            const transactionsData = await transactionsResponse.json();
-
-            if (!transactionsResponse.ok) {
-                setMessage(transactionsData.message || 'Errore nel recupero transazioni');
-                setTransactions([]);
-                setLoading(false);
+            if (response.status === 401) {
+                handleLogout();
                 return;
             }
 
-            setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
-            setMessage('');
-        } catch (error) {
-            console.error(error);
-            setMessage('Errore nel recupero della dashboard');
+            if (!response.ok) {
+                throw new Error('Errore nel recupero analytics');
+            }
+
+            const data = await response.json();
+            setAnalytics(data);
+        } catch (err) {
+            console.error(err);
+            setError('Errore durante il caricamento delle statistiche');
         } finally {
-            setLoading(false);
+            setAnalyticsLoading(false);
         }
-    };
+    }
 
-    const handleDelete = async (id) => {
-        const token = localStorage.getItem('token');
+    async function fetchTransactions() {
+        try {
+            setTransactionsLoading(true);
 
-        if (!window.confirm('Vuoi davvero eliminare questa transazione?')) {
-            return;
+            const response = await fetch(
+                buildApiUrl(`/api/transactions?period=${period}`),
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            if (response.status === 401) {
+                handleLogout();
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error('Errore nel recupero transazioni');
+            }
+
+            const data = await response.json();
+            setTransactions(data);
+        } catch (err) {
+            console.error(err);
+            setError('Errore durante il caricamento delle transazioni');
+        } finally {
+            setTransactionsLoading(false);
         }
+    }
+
+    function handleLogout() {
+        localStorage.removeItem('token');
+        navigate('/login');
+    }
+
+    function handleBudgetChange(e) {
+        const value = Number(e.target.value) || 0;
+        setMonthlyBudget(value);
+        localStorage.setItem('monthlyBudget', value.toString());
+    }
+
+    function getDateRange(period) {
+        const now = new Date();
+
+        let start;
+        let end;
+
+        if (period === 'day') {
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        }
+
+        if (period === 'week') {
+            const currentDay = now.getDay(); // 0 = domenica, 1 = lunedì, ...
+            const diffToMonday = currentDay === 0 ? 6 : currentDay - 1;
+
+            start = new Date(now);
+            start.setDate(now.getDate() - diffToMonday);
+            start.setHours(0, 0, 0, 0);
+
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            end.setHours(23, 59, 59, 999);
+        }
+
+        if (period === 'month') {
+            start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        }
+
+        if (period === 'year') {
+            start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+            end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        }
+
+        return { start, end };
+    }
+
+    async function handleDeleteTransaction(id) {
+        const confirmed = window.confirm('Vuoi davvero eliminare questa transazione?');
+        if (!confirmed) return;
 
         try {
-            const response = await fetch(`http://localhost:5000/api/transactions/${id}`, {
+            const response = await fetch(buildApiUrl(`/api/transactions/${id}`), {
                 method: 'DELETE',
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                setMessage(data.message || 'Errore nella cancellazione');
+            if (response.status === 401) {
+                handleLogout();
                 return;
             }
 
-            fetchDashboardData();
-        } catch (error) {
-            console.error(error);
-            setMessage('Errore di connessione al server');
+            if (!response.ok) {
+                throw new Error("Errore durante l'eliminazione");
+            }
+
+            await Promise.all([fetchAnalytics(), fetchTransactions()]);
+        } catch (err) {
+            console.error(err);
+            setError("Errore durante l'eliminazione della transazione");
         }
-    };
+    }
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, [period]);
+    function handleEditTransaction(transaction) {
+        setEditingTransaction(transaction);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-    const expenseTransactions = useMemo(
-        () => transactions.filter((item) => item.type === 'expense'),
-        [transactions]
-    );
+    function handleFormSuccess() {
+        setEditingTransaction(null);
+        fetchAnalytics();
+        fetchTransactions();
+    }
 
-    const totalExpenses = useMemo(() => {
-        return expenseTransactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    }, [expenseTransactions]);
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter((transaction) => {
+            const matchesSearch =
+                !searchTerm ||
+                transaction.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const totalIncome = useMemo(() => {
-        return transactions
-            .filter((item) => item.type === 'income')
-            .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            const matchesCategory =
+                !selectedCategory || transaction.category === selectedCategory;
+
+            return matchesSearch && matchesCategory;
+        });
+    }, [transactions, searchTerm, selectedCategory]);
+
+    const availableCategories = useMemo(() => {
+        return [...new Set(transactions.map((t) => t.category).filter(Boolean))];
     }, [transactions]);
 
-    const balance = totalIncome - totalExpenses;
-    const elapsedDays = getElapsedDaysInCurrentPeriod(period);
-    const totalDays = getDaysInCurrentPeriod(period);
-    const averageDailyExpense = totalExpenses / elapsedDays;
-    const projectedTotal = averageDailyExpense * totalDays;
-    const budgetUsedPercentage =
-        savedBudget > 0 ? Math.min((totalExpenses / savedBudget) * 100, 999) : 0;
-    const budgetRemaining = savedBudget - totalExpenses;
+    const categoryData = analytics?.categoryTotals || [];
+    const trendData = analytics?.trend || [];
 
-    const categoryTotals = useMemo(() => {
-        const totals = {};
-
-        expenseTransactions.forEach((item) => {
-            const category = item.category || 'Altro';
-            totals[category] = (totals[category] || 0) + Number(item.amount || 0);
-        });
-
-        return Object.entries(totals)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value);
-    }, [expenseTransactions]);
-
-    const pieChartData = useMemo(() => {
-        return categoryTotals.map((item) => ({
-            name: item.name,
-            value: Number(item.value.toFixed(2))
-        }));
-    }, [categoryTotals]);
-
-    const trendData = useMemo(() => buildTrendData(transactions, period), [transactions, period]);
-
-    const categorySuggestions = useMemo(() => {
-        return categoryTotals.slice(0, 5).map((item) => {
-            const share = totalExpenses > 0 ? item.value / totalExpenses : 0;
-            const suggestedBudget = savedBudget * share;
-            const projectedCategoryExpense = projectedTotal * share;
-            const isOverSuggested = item.value > suggestedBudget && suggestedBudget > 0;
-
-            return {
-                ...item,
-                share,
-                suggestedBudget,
-                projectedCategoryExpense,
-                isOverSuggested
-            };
-        });
-    }, [categoryTotals, totalExpenses, savedBudget, projectedTotal]);
-
-    const budgetAlerts = useMemo(() => {
-        const alerts = [];
-
-        if (savedBudget <= 0) {
-            return ['Inserisci un budget mensile per ricevere avvisi automatici.'];
-        }
-
-        const usedPercentage = (totalExpenses / savedBudget) * 100;
-
-        if (usedPercentage >= 100) {
-            alerts.push(
-                `Hai superato il budget mensile di ${formatCurrency(totalExpenses - savedBudget)}.`
-            );
-        } else if (usedPercentage >= 80) {
-            alerts.push(
-                `Hai già utilizzato il ${usedPercentage.toFixed(1)}% del budget mensile.`
-            );
-        }
-
-        if (projectedTotal > savedBudget) {
-            alerts.push(
-                `Con l'andamento attuale potresti chiudere il mese sopra budget di circa ${formatCurrency(
-                    projectedTotal - savedBudget
-                )}.`
-            );
-        }
-
-        categorySuggestions.forEach((item) => {
-            if (item.isOverSuggested) {
-                alerts.push(
-                    `La categoria ${item.name} è sopra il budget suggerito: ${formatCurrency(
-                        item.value
-                    )} spesi su ${formatCurrency(item.suggestedBudget)}.`
-                );
-            }
-        });
-
-        return alerts.slice(0, 4);
-    }, [savedBudget, totalExpenses, projectedTotal, categorySuggestions]);
-
-    const estimatedNextMonth = (totalExpenses * 1.1).toFixed(2);
-
-    const saveBudget = () => {
-        const normalized = Number(String(budgetInput).replace(',', '.'));
-
-        if (Number.isNaN(normalized) || normalized <= 0) {
-            setMessage('Inserisci un budget mensile valido');
-            return;
-        }
-
-        const budgetKey = getBudgetStorageKey(user?.id || user?._id);
-        localStorage.setItem(budgetKey, String(normalized));
-        setSavedBudget(normalized);
-        setMessage('Budget salvato con successo');
+    const incomeCaptionByPeriod = {
+        day: 'Totale entrate giornaliere',
+        week: 'Totale entrate settimanali',
+        month: 'Totale entrate mensili',
+        year: 'Totale entrate annuali'
     };
+
+    const expenseCaptionByPeriod = {
+        day: 'Totale uscite giornaliere',
+        week: 'Totale uscite settimanali',
+        month: 'Totale uscite mensili',
+        year: 'Totale uscite annuali'
+    };
+
+    const balanceCaptionByPeriod = {
+        day: 'Saldo giornaliero',
+        week: 'Saldo settimanale',
+        month: 'Saldo mensile',
+        year: 'Saldo annuale'
+    };
+
+    const forecastCaptionByPeriod = {
+        day: 'Proiezione di fine giornata',
+        week: 'Proiezione di fine settimana',
+        month: 'Proiezione di fine mese',
+        year: 'Proiezione di fine anno'
+    };
+
+    const budgetFillWidth = Math.min(analytics?.budget?.usedPercentage || 0, 100);
+    const budgetStatusClass =
+        !analytics?.budget?.monthlyBudget
+            ? 'warning'
+            : analytics.budget.exceeded
+                ? 'danger'
+                : analytics.budget.usedPercentage >= 80
+                    ? 'warning'
+                    : 'success';
 
     if (loading) {
         return <div className="dashboard-wrapper">Caricamento dashboard...</div>;
@@ -346,130 +312,206 @@ function Dashboard() {
 
     return (
         <div className="dashboard-wrapper">
-            <div className="dashboard-header">
-                <div>
-                    <p className="dashboard-eyebrow">Dashboard finanziaria</p>
-                    <h1>Ciao{user?.username ? `, ${user.username}` : ''} 👋</h1>
+            <div className="dashboard-header hero">
+                <div className="hero-left">
+                    <p className="dashboard-eyebrow">Spendara</p>
+
+                    <h1>
+                        Ciao{user?.username ? `, ${user.username}` : ''} 👋
+                    </h1>
+
                     <p className="dashboard-subtitle">
-                        Monitora spese, categorie e andamento del tuo budget.
+                        Ecco una panoramica aggiornata delle tue finanze.
                     </p>
+
+                    <div className="hero-actions">
+                        <button
+                            className="primary-action-btn"
+                            onClick={() => window.scrollTo({ top: 400, behavior: 'smooth' })}
+                        >
+                            + Nuova transazione
+                        </button>
+                    </div>
                 </div>
 
+                <div className="hero-right">
+                    <div className="hero-stat">
+                        <span>Saldo attuale</span>
+                        <strong>
+                            {analytics ? `€ ${analytics.totals.balance.toFixed(2)}` : '...'}
+                        </strong>
+                    </div>
+
+                    <div className="hero-stat">
+                        <span>Spese periodo</span>
+                        <strong>
+                            {analytics ? `€ ${analytics.totals.expenses.toFixed(2)}` : '...'}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            {error && <div className="dashboard-alert error">{error}</div>}
+
+            <div className="filters-toolbar">
                 <div className="filter-box">
-                    <label htmlFor="period">Periodo</label>
-                    <select
-                        id="period"
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value)}
-                    >
+                    <label>Periodo</label>
+                    <select value={period} onChange={(e) => setPeriod(e.target.value)}>
                         <option value="day">Giorno</option>
+                        <option value="week">Settimana</option>
                         <option value="month">Mese</option>
                         <option value="year">Anno</option>
                     </select>
                 </div>
-            </div>
 
-            {message && <div className="dashboard-alert error">{message}</div>}
+                <div className="filter-box">
+                    <label>Budget mensile (€)</label>
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={monthlyBudget}
+                        onChange={handleBudgetChange}
+                        placeholder="Inserisci budget"
+                    />
+                </div>
+            </div>
 
             <div className="stats-grid">
                 <div className="stat-card">
-                    <p className="stat-label">Saldo attuale</p>
-                    <h2>€ {balance.toFixed(2)}</h2>
-                </div>
-
-                <div className="stat-card">
                     <p className="stat-label">Entrate</p>
-                    <h2>€ {totalIncome.toFixed(2)}</h2>
+                    <h2>
+                        {analyticsLoading || !analytics
+                            ? '...'
+                            : `€ ${analytics.totals.income.toFixed(2)}`}
+                    </h2>
+                    <p className="stat-caption">{incomeCaptionByPeriod[period]}</p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Uscite</p>
-                    <h2>€ {totalExpenses.toFixed(2)}</h2>
+                    <p className="stat-label">Spese</p>
+                    <h2>
+                        {analyticsLoading || !analytics
+                            ? '...'
+                            : `€ ${analytics.totals.expenses.toFixed(2)}`}
+                    </h2>
+                    <p className="stat-caption">{expenseCaptionByPeriod[period]}</p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Transazioni</p>
-                    <h2>{transactions.length}</h2>
+                    <p className="stat-label">Saldo</p>
+                    <h2>
+                        {analyticsLoading || !analytics
+                            ? '...'
+                            : `€ ${analytics.totals.balance.toFixed(2)}`}
+                    </h2>
+                    <p className="stat-caption">{balanceCaptionByPeriod[period]}</p>
+                </div>
+
+                <div className="stat-card">
+                    <p className="stat-label">{forecastCaptionByPeriod[period]}</p>
+                    <h2>
+                        {analyticsLoading || !analytics
+                            ? '...'
+                            : `€ ${analytics.forecast.projectedTotal.toFixed(2)}`}
+                    </h2>
                 </div>
             </div>
 
-            <div className="dashboard-main-grid">
-                <AddTransactionForm
-                    onTransactionAdded={fetchDashboardData}
-                    editingTransaction={editingTransaction}
-                    onEditFinished={() => setEditingTransaction(null)}
-                />
-
-                <section className="dashboard-card large-card">
+            <div className="dashboard-top-content-grid">
+                <div className="dashboard-card large-card form-card">
                     <div className="card-header">
-                        <h3>Spese per categoria</h3>
-                        <span>Distribuzione</span>
+                        <div className="card-header-stack">
+                            <h3>{editingTransaction ? 'Modifica transazione' : 'Nuova transazione'}</h3>
+                            <p>
+                                Inserisci entrate e spese per mantenere aggiornata la dashboard.
+                            </p>
+                        </div>
                     </div>
 
-                    {categoryTotals.length === 0 ? (
-                        <div className="empty-state">Nessuna categoria disponibile.</div>
+                    <AddTransactionForm
+                        onSuccess={handleFormSuccess}
+                        editingTransaction={editingTransaction}
+                        onCancelEdit={() => setEditingTransaction(null)}
+                    />
+                </div>
+
+                <div className="dashboard-card large-card">
+                    <div className="card-header">
+                        <div className="card-header-stack">
+                            <h3>Spese per categoria</h3>
+                            <p>
+                                {period === 'day' && 'Distribuzione delle spese di oggi'}
+                                {period === 'week' && 'Distribuzione delle spese della settimana corrente'}
+                                {period === 'month' && 'Distribuzione delle spese del mese corrente'}
+                                {period === 'year' && "Distribuzione delle spese dell'anno corrente"}
+                            </p>
+                        </div>
+                    </div>
+
+                    {analyticsLoading ? (
+                        <div className="empty-state">Caricamento grafico categorie...</div>
+                    ) : categoryData.length === 0 ? (
+                        <div className="empty-state">
+                            Nessun dato disponibile.
+                            <span>Aggiungi almeno una spesa per visualizzare il grafico.</span>
+                        </div>
                     ) : (
-                        <div className="category-chart-layout">
+                        <div className="category-chart-layout compact-category-layout">
                             <div className="chart-container">
-                                <ResponsiveContainer width="100%" height={340}>
+                                <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={pieChartData}
-                                            dataKey="value"
-                                            nameKey="name"
+                                            data={categoryData}
+                                            dataKey="total"
+                                            nameKey="category"
                                             cx="50%"
                                             cy="50%"
-                                            outerRadius={120}
-                                            innerRadius={55}
-                                            paddingAngle={2}
-                                            label={({ name, percent }) =>
-                                                `${name} ${(percent * 100).toFixed(0)}%`
-                                            }
+                                            outerRadius={90}
+                                            label
                                         >
-                                            {pieChartData.map((entry, index) => (
+                                            {categoryData.map((entry, index) => (
                                                 <Cell
-                                                    key={`cell-${entry.name}-${index}`}
-                                                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                                                    key={`cell-${entry.category}-${index}`}
+                                                    fill={COLORS[index % COLORS.length]}
                                                 />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value) => formatCurrency(value)} />
+                                        <Tooltip formatter={(value) => `€ ${Number(value).toFixed(2)}`} />
                                         <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
 
                             <div className="category-list">
-                                {categoryTotals.map((category, index) => {
+                                {categoryData.map((item, index) => {
                                     const percentage =
-                                        totalExpenses > 0 ? (category.value / totalExpenses) * 100 : 0;
+                                        analytics?.totals?.expenses > 0
+                                            ? (item.total / analytics.totals.expenses) * 100
+                                            : 0;
 
                                     return (
-                                        <div key={category.name} className="category-item">
+                                        <div className="category-item" key={item.category}>
                                             <div className="category-top">
-                                                <span>
-                                                    <span
-                                                        className="legend-dot"
-                                                        style={{
-                                                            backgroundColor:
-                                                                CHART_COLORS[index % CHART_COLORS.length]
-                                                        }}
-                                                    />
-                                                    {getCategoryIcon(category.name)} {category.name}
-                                                </span>
-                                                <strong>{formatCurrency(category.value)}</strong>
+                                    <span>
+                                        <span
+                                            className="legend-dot"
+                                            style={{
+                                                backgroundColor: COLORS[index % COLORS.length]
+                                            }}
+                                        />
+                                        {item.category}
+                                    </span>
+                                                <span>€ {item.total.toFixed(2)}</span>
                                             </div>
-
                                             <div className="progress-bar">
                                                 <div
                                                     className="progress-fill"
-                                                    style={{ width: `${percentage}%` }}
+                                                    style={{ width: `${Math.min(percentage, 100)}%` }}
                                                 />
                                             </div>
-
                                             <div className="progress-meta">
-                                                <span>{percentage.toFixed(1)}% del totale</span>
-                                                <span>{formatCurrency(category.value)}</span>
+                                                <span>{percentage.toFixed(1)}% del totale spese</span>
                                             </div>
                                         </div>
                                     );
@@ -477,231 +519,216 @@ function Dashboard() {
                             </div>
                         </div>
                     )}
-                </section>
-            </div>
+                </div>
 
-            <div className="dashboard-secondary-grid">
-                <section className="dashboard-card">
+                <div className="dashboard-card large-card">
                     <div className="card-header">
-                        <h3>Previsione spese</h3>
-                        <span>Stima</span>
-                    </div>
-
-                    <div className="forecast-box">
-                        <p>Periodo successivo</p>
-                        <h2>€ {estimatedNextMonth}</h2>
-                        <span>Stima iniziale calcolata sulla base delle spese correnti.</span>
-                    </div>
-                </section>
-
-                <section className="dashboard-card">
-                    <div className="card-header">
-                        <h3>Budget e avvisi</h3>
-                        <span>Mensile</span>
-                    </div>
-
-                    <div className="budget-box">
-                        <div className="budget-input-box">
-                            <label htmlFor="monthly-budget">Imposta budget mensile</label>
-
-                            <div className="budget-input-row">
-                                <div className="currency-input-wrapper">
-                                    <span className="currency-symbol">€</span>
-                                    <input
-                                        id="monthly-budget"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={budgetInput}
-                                        onChange={(e) => setBudgetInput(e.target.value)}
-                                        className="currency-input"
-                                        placeholder="Es. 1200"
-                                    />
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className="primary-action-btn"
-                                    onClick={saveBudget}
-                                >
-                                    Salva budget
-                                </button>
-                            </div>
+                        <div className="card-header-stack">
+                            <h3>Andamento spese</h3>
+                            <p>Vista aggregata per {period === 'year' ? 'mese' : 'giorno'}</p>
                         </div>
-
-                        <div className="budget-summary">
-                            <div className="budget-card primary">
-                                <p>Budget mensile</p>
-                                <h3>{formatCurrency(savedBudget)}</h3>
-                            </div>
-
-                            <div className="budget-card info">
-                                <p>Speso</p>
-                                <h3>{formatCurrency(totalExpenses)}</h3>
-                            </div>
-
-                            <div className="budget-card success">
-                                <p>Residuo</p>
-                                <h3>{formatCurrency(budgetRemaining)}</h3>
-                            </div>
-                        </div>
-
-                        <div className="budget-progress-box">
-                            <div className="budget-progress-header">
-                                <span>Utilizzo budget</span>
-                                <strong>{budgetUsedPercentage.toFixed(1)}%</strong>
-                            </div>
-
-                            <div className="budget-progress">
-                                <div
-                                    className="budget-progress-fill"
-                                    style={{ width: `${Math.min(budgetUsedPercentage, 100)}%` }}
-                                />
-                            </div>
-                        </div>
-
-                        {savedBudget > 0 && (
-                            <div className="budget-status-row">
-                                {budgetUsedPercentage < 75 && (
-                                    <span className="badge success">Situazione sotto controllo</span>
-                                )}
-
-                                {budgetUsedPercentage >= 75 && budgetUsedPercentage < 100 && (
-                                    <span className="badge warning">Budget quasi esaurito</span>
-                                )}
-
-                                {budgetUsedPercentage >= 100 && (
-                                    <span className="badge danger">Budget superato</span>
-                                )}
-                            </div>
-                        )}
-
-                        {budgetAlerts.length === 0 ? (
-                            <div className="dashboard-alert success">
-                                Nessun avviso: la spesa è coerente con il budget impostato.
-                            </div>
-                        ) : (
-                            <div className="alerts-list">
-                                {budgetAlerts.map((alert, index) => (
-                                    <div key={index} className="dashboard-alert warning">
-                                        {alert}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </section>
-            </div>
-
-            <div className="dashboard-analytics-grid">
-                <section className="dashboard-card large-card full-width">
-                    <div className="card-header">
-                        <h3>Andamento spese nel tempo</h3>
-                        <span>
-                            {period === 'day'
-                                ? 'Vista giornaliera'
-                                : period === 'month'
-                                    ? 'Trend del mese'
-                                    : 'Trend annuale'}
-                        </span>
                     </div>
 
-                    {trendData.length === 0 ? (
+                    {analyticsLoading ? (
+                        <div className="empty-state">Caricamento andamento spese...</div>
+                    ) : trendData.length === 0 ? (
                         <div className="empty-state">
-                            Nessun dato disponibile per il grafico.
-                            <span>Aggiungi almeno una spesa per visualizzare l'andamento.</span>
+                            Nessun dato disponibile.
+                            <span>Inserisci transazioni per visualizzare il trend.</span>
                         </div>
                     ) : (
                         <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={340}>
-                                <LineChart
-                                    data={trendData}
-                                    margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
-                                >
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={trendData}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis
-                                        dataKey="label"
-                                        tick={{ fontSize: 12 }}
-                                        interval="preserveStartEnd"
-                                    />
-                                    <YAxis
-                                        tickFormatter={(value) => `€${value}`}
-                                        tick={{ fontSize: 12 }}
-                                    />
-                                    <Tooltip
-                                        formatter={(value) => [formatCurrency(value), 'Spese']}
-                                        labelFormatter={(label) => `Data: ${label}`}
-                                    />
-                                    <Line
-                                        type="monotone"
+                                    <XAxis dataKey="label" />
+                                    <YAxis />
+                                    <Tooltip formatter={(value) => `€ ${Number(value).toFixed(2)}`} />
+                                    <Legend />
+                                    <Bar
                                         dataKey="total"
-                                        name="Spese"
-                                        stroke="#4F46E5"
-                                        strokeWidth={3}
-                                        dot={{ r: 4 }}
-                                        activeDot={{ r: 6 }}
+                                        name="Spese (€)"
+                                        fill="#4f46e5"
+                                        radius={[8, 8, 0, 0]}
                                     />
-                                </LineChart>
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     )}
-                </section>
+                </div>
             </div>
 
-            <section className="dashboard-card transactions-card">
-                <div className="card-header">
-                    <h3>Transazioni recenti</h3>
-                    <span>Elenco movimenti</span>
+            <div className="dashboard-secondary-grid">
+                <div className="dashboard-card">
+                    <div className="card-header">
+                        <div className="card-header-stack">
+                            <h3>Previsione</h3>
+                            <p>Stima basata sulle spese registrate fino a oggi</p>
+                        </div>
+                    </div>
+
+                    {analyticsLoading || !analytics ? (
+                        <div className="empty-state">Caricamento previsione...</div>
+                    ) : (
+                        <div className="forecast-box">
+                            <p>Media giornaliera delle spese</p>
+                            <h2>€ {analytics.forecast.averageDailyExpense.toFixed(2)}</h2>
+                            <span>
+                                Se il trend corrente continua, la spesa totale prevista a fine periodo
+                                sarà di <strong>€ {analytics.forecast.projectedTotal.toFixed(2)}</strong>.
+                            </span>
+                        </div>
+                    )}
                 </div>
 
-                {filteredTransactions.length === 0 ? (
+                <div className="dashboard-card">
+                    <div className="card-header">
+                        <div className="card-header-stack">
+                            <h3>Budget</h3>
+                            <p>Monitoraggio del budget mensile impostato</p>
+                        </div>
+                    </div>
+
+                    {analyticsLoading || !analytics ? (
+                        <div className="empty-state">Caricamento budget...</div>
+                    ) : (
+                        <div className="budget-box">
+                            <div className="budget-summary">
+                                <div className="budget-card primary">
+                                    <p>Budget mensile</p>
+                                    <h3>€ {analytics.budget.monthlyBudget.toFixed(2)}</h3>
+                                </div>
+
+                                <div className="budget-card info">
+                                    <p>Budget utilizzato</p>
+                                    <h3>{analytics.budget.usedPercentage.toFixed(2)}%</h3>
+                                </div>
+
+                                <div className="budget-card success">
+                                    <p>Budget residuo</p>
+                                    <h3>€ {analytics.budget.remaining.toFixed(2)}</h3>
+                                </div>
+                            </div>
+
+                            <div className="budget-progress-box">
+                                <div className="budget-progress-header">
+                                    <span>Utilizzo del budget</span>
+                                    <span>{analytics.budget.usedPercentage.toFixed(2)}%</span>
+                                </div>
+
+                                <div className="budget-progress">
+                                    <div
+                                        className="budget-progress-fill"
+                                        style={{ width: `${budgetFillWidth}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="budget-status-row">
+                                <span className={`badge ${budgetStatusClass}`}>
+                                    {!analytics.budget.monthlyBudget
+                                        ? 'Budget non impostato'
+                                        : analytics.budget.exceeded
+                                            ? 'Budget superato'
+                                            : analytics.budget.usedPercentage >= 80
+                                                ? 'Attenzione al limite'
+                                                : 'In linea con il budget'}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="dashboard-card transactions-card">
+                <div className="card-header">
+                    <div className="card-header-stack">
+                        <h3>Transazioni</h3>
+                        <p>Elenco delle transazioni registrate nel periodo selezionato</p>
+                    </div>
+                </div>
+
+                <div className="table-toolbar">
+                    <div className="filter-box">
+                        <label>Cerca per descrizione</label>
+                        <input
+                            type="text"
+                            placeholder="Es. supermercato"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="filter-box">
+                        <label>Filtra per categoria</label>
+                        <select
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                        >
+                            <option value="">Tutte le categorie</option>
+                            {availableCategories.map((category) => (
+                                <option key={category} value={category}>
+                                    {category}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {transactionsLoading ? (
+                    <div className="empty-state">Caricamento transazioni...</div>
+                ) : filteredTransactions.length === 0 ? (
                     <div className="empty-state">
-                        Non ci sono ancora transazioni.
-                        <span>Inserisci la prima spesa o entrata per iniziare.</span>
+                        Nessuna transazione trovata.
+                        <span>Prova a cambiare i filtri oppure ad aggiungere una nuova transazione.</span>
                     </div>
                 ) : (
                     <div className="table-wrapper">
                         <table>
                             <thead>
                             <tr>
-                                <th>Descrizione</th>
-                                <th>Categoria</th>
                                 <th>Data</th>
-                                <th>Metodo</th>
+                                <th>Tipo</th>
+                                <th>Categoria</th>
+                                <th>Descrizione</th>
+                                <th>Metodo di pagamento</th>
                                 <th>Importo</th>
                                 <th>Azioni</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {filteredTransactions.map((item) => (
-                                <tr key={item._id}>
-                                    <td>{item.description || '-'}</td>
+                            {filteredTransactions.map((transaction) => (
+                                <tr key={transaction._id}>
                                     <td>
-                                        {getCategoryIcon(item.category)} {item.category}
+                                        {new Date(transaction.date).toLocaleDateString('it-IT')}
                                     </td>
-                                    <td>{new Date(item.date).toLocaleDateString()}</td>
-                                    <td>{item.paymentMethod || '-'}</td>
+                                    <td>
+                                        {transaction.type === 'income' ? 'Entrata' : 'Spesa'}
+                                    </td>
+                                    <td>{transaction.category}</td>
+                                    <td>{transaction.description}</td>
+                                    <td>{transaction.paymentMethod || '-'}</td>
                                     <td
                                         className={
-                                            item.type === 'income'
+                                            transaction.type === 'income'
                                                 ? 'amount-income'
                                                 : 'amount-expense'
                                         }
                                     >
-                                        {item.type === 'income' ? '+' : '-'} €{' '}
-                                        {Number(item.amount).toFixed(2)}
+                                        € {Number(transaction.amount).toFixed(2)}
                                     </td>
                                     <td>
                                         <button
+                                            onClick={() => handleEditTransaction(transaction)}
                                             className="table-action edit"
-                                            onClick={() => setEditingTransaction(item)}
                                         >
                                             Modifica
                                         </button>
-
                                         <button
+                                            onClick={() =>
+                                                handleDeleteTransaction(transaction._id)
+                                            }
                                             className="table-action delete"
-                                            onClick={() => handleDelete(item._id)}
                                         >
                                             Elimina
                                         </button>
@@ -712,9 +739,7 @@ function Dashboard() {
                         </table>
                     </div>
                 )}
-            </section>
+            </div>
         </div>
     );
 }
-
-export default Dashboard;

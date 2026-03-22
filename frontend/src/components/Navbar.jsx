@@ -26,32 +26,29 @@ function Navbar() {
             <div className="navbar-brand">Spendara</div>
 
             <div className="navbar-links">
+                {/* HOME = link normale */}
                 <Link
                     to="/"
-                    className={location.pathname === '/' ? 'nav-link active' : 'nav-link'}
+                    className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
                 >
                     Home
                 </Link>
 
-                {!token && (
-                    <>
-                        <Link
-                            to="/login"
-                            className={location.pathname === '/login' ? 'nav-link active' : 'nav-link'}
-                        >
-                            Login
-                        </Link>
-
-                        <Link
-                            to="/register"
-                            className={location.pathname === '/register' ? 'nav-link active' : 'nav-link'}
-                        >
-                            Registrati
-                        </Link>
-                    </>
+                {/* LOGIN / REGISTER = BOTTONI */}
+                {location.pathname === '/login' && (
+                    <Link to="/register" className="nav-link nav-button">
+                        Registrati
+                    </Link>
                 )}
 
-                {token && (
+                {location.pathname === '/register' && (
+                    <Link to="/login" className="nav-link nav-button">
+                        Login
+                    </Link>
+                )}
+
+                {/* LOGOUT */}
+                {token && location.pathname !== '/login' && location.pathname !== '/register' && (
                     <button className="logout-btn" onClick={handleLogout}>
                         Logout
                     </button>
