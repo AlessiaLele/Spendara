@@ -1,37 +1,5 @@
 const Transaction = require('../models/Transaction');
-
-function getDateRange(period = 'month') {
-    const now = new Date();
-    let start;
-    let end;
-
-    if (period === 'day') {
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    } else if (period === 'week') {
-        const day = now.getDay(); // 0 = domenica, 1 = lunedì
-        const diffToMonday = day === 0 ? 6 : day - 1;
-
-        start = new Date(now);
-        start.setDate(now.getDate() - diffToMonday);
-        start.setHours(0, 0, 0, 0);
-
-        end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-    } else if (period === 'month') {
-        start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    } else if (period === 'year') {
-        start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
-        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-    } else {
-        start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    }
-
-    return { start, end };
-}
+const { getDateRange } = require('../utils/dateRange');
 
 function getTotalDaysInPeriod(period, now = new Date()) {
     if (period === 'day') {
