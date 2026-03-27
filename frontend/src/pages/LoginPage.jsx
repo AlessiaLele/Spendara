@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../styles/Login.css';
 
-function Login() {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+function LoginPage() {
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -11,6 +13,8 @@ function Login() {
     });
 
     const [message, setMessage] = useState('');
+    const [isError, setIsError] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -23,7 +27,11 @@ function Login() {
         e.preventDefault();
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/login', {
+            setLoading(true);
+            setMessage('');
+            setIsError(false);
+
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -34,6 +42,7 @@ function Login() {
             const data = await response.json();
 
             if (!response.ok) {
+                setIsError(true);
                 setMessage(data.message || 'Errore durante il login');
                 return;
             }
@@ -41,43 +50,62 @@ function Login() {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
 
-            navigate('/dashboard');
+            navigate('/connect-bank');
         } catch (error) {
+            setIsError(true);
             setMessage('Errore di connessione al server');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <div className="auth-page">
             <div className="auth-card">
-                <h2>Login</h2>
+                <div className="auth-header">
+                    <h1>Accedi a Spendara</h1>
+                    <p>
+                        Entra nel tuo account per collegare il conto bancario
+                        e visualizzare la tua dashboard finanziaria.
+                    </p>
+                </div>
 
                 <form className="auth-form" onSubmit={handleSubmit}>
+                    <label htmlFor="email">Email</label>
                     <input
+                        id="email"
                         type="email"
                         name="email"
-                        placeholder="Email"
+                        placeholder="Inserisci la tua email"
                         value={formData.email}
                         onChange={handleChange}
+                        required
                     />
 
+                    <label htmlFor="password">Password</label>
                     <input
+                        id="password"
                         type="password"
                         name="password"
-                        placeholder="Password"
+                        placeholder="Inserisci la tua password"
                         value={formData.password}
                         onChange={handleChange}
+                        required
                     />
 
-                    <button type="submit" className="auth-button">
-                        Accedi
+                    <button type="submit" className="auth-button" disabled={loading}>
+                        {loading ? 'Accesso in corso...' : 'Accedi'}
                     </button>
                 </form>
 
-                {message && <p className="auth-message">{message}</p>}
+                {message && (
+                    <p className={`auth-message ${isError ? 'error' : ''}`}>
+                        {message}
+                    </p>
+                )}
             </div>
         </div>
     );
 }
 
-export default Login;
+export default LoginPage;

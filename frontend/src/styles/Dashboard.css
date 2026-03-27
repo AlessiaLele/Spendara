@@ -833,3 +833,9 @@ tbody tr:hover {
 .hero-stat strong {
     font-size: 20px;
 }
+
+.form-message {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 600;
+}

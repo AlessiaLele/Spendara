@@ -1,0 +1,153 @@
+.connect-bank-page {
+    min-height: calc(100vh - 73px);
+    padding: 40px 20px 60px;
+    background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 45%, #ffffff 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.connect-bank-card {
+    width: 100%;
+    max-width: 960px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #e5e7eb;
+    border-radius: 24px;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.06);
+    padding: 40px 32px;
+    text-align: center;
+}
+
+.connect-bank-badge {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 24px;
+}
+
+.connect-bank-title {
+    margin: 0 0 20px;
+    font-size: 44px;
+    line-height: 1.1;
+    font-weight: 800;
+    color: #111827;
+}
+
+.connect-bank-title span {
+    display: block;
+    color: #4f46e5;
+}
+
+.connect-bank-subtitle {
+    max-width: 760px;
+    margin: 0 auto 30px;
+    font-size: 18px;
+    line-height: 1.7;
+    color: #6b7280;
+}
+
+.connect-bank-actions {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+}
+
+.connect-bank-primary-btn {
+    border: none;
+    background: #4f46e5;
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.connect-bank-primary-btn:hover {
+    background: #4338ca;
+    transform: translateY(-1px);
+}
+
+.connect-bank-primary-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.connect-bank-error {
+    margin: 0 0 20px;
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.connect-bank-loading {
+    margin: 0;
+    color: #4b5563;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.connect-bank-info-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.connect-bank-info-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 22px;
+    text-align: left;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+}
+
+.connect-bank-info-card h3 {
+    margin: 0 0 12px;
+    color: #111827;
+    font-size: 19px;
+}
+
+.connect-bank-info-card p {
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+    .connect-bank-title {
+        font-size: 36px;
+    }
+
+    .connect-bank-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .connect-bank-page {
+        padding: 20px 16px 40px;
+    }
+
+    .connect-bank-card {
+        padding: 28px 20px;
+    }
+
+    .connect-bank-title {
+        font-size: 30px;
+    }
+
+    .connect-bank-subtitle {
+        font-size: 16px;
+    }
+
+    .connect-bank-primary-btn {
+        width: 100%;
+    }
+}

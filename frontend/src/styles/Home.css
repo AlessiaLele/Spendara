@@ -96,6 +96,13 @@ body {
     transform: translateY(-1px);
 }
 
+.hero-note {
+    margin-top: 22px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
 .features-section {
     max-width: 1100px;
     margin: 40px auto 0;
@@ -158,5 +165,9 @@ body {
 
     .hero-buttons {
         flex-direction: column;
+    }
+
+    .hero-note {
+        font-size: 14px;
     }
 }
