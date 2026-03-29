@@ -6,15 +6,15 @@ const { protect } = require('../middleware/authMiddleware');
 const {
     addCashTransaction,
     getAllTransactions,
-    deleteTransaction,
-    seedTransactions,
-    addDailySimulatedTransactions
+    updateTransactionCategory,
+    updateManualTransaction,
+    deleteTransaction
 } = require('../controllers/transactionController');
 
 router.get('/', protect, getAllTransactions);
 router.post('/cash', protect, addCashTransaction);
+router.patch('/:id/category', protect, updateTransactionCategory);
+router.put('/:id/manual', protect, updateManualTransaction);
 router.delete('/:id', protect, deleteTransaction);
-router.post('/seed', protect, seedTransactions);
-router.post('/simulate-daily', protect, addDailySimulatedTransactions);
 
 module.exports = router;

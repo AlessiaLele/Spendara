@@ -1,5 +1,32 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+async function parseApiResponse(response) {
+    const contentType = response.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Errore API');
+        }
+
+        return data;
+    }
+
+    const text = await response.text();
+
+    if (!response.ok) {
+        throw new Error(
+            text?.trim() ||
+            'Il server ha risposto con un formato non valido'
+        );
+    }
+
+    throw new Error(
+        'Il server ha restituito una risposta non JSON. Controlla URL backend, route API e configurazione deploy.'
+    );
+}
+
 export async function startBankConnection(token) {
     const response = await fetch(`${API_BASE_URL}/api/tink/connect`, {
         method: 'GET',
@@ -8,13 +35,7 @@ export async function startBankConnection(token) {
         }
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Errore durante l’avvio del collegamento banca');
-    }
-
-    return data;
+    return parseApiResponse(response);
 }
 
 export async function completeBankCallback(code, state) {
@@ -27,13 +48,7 @@ export async function completeBankCallback(code, state) {
         method: 'GET'
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Errore durante il completamento della callback');
-    }
-
-    return data;
+    return parseApiResponse(response);
 }
 
 export async function getBankConnectionStatus(token) {
@@ -44,13 +59,7 @@ export async function getBankConnectionStatus(token) {
         }
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Errore nel recupero stato collegamento banca');
-    }
-
-    return data;
+    return parseApiResponse(response);
 }
 
 export async function syncBankTransactions(token) {
@@ -61,13 +70,7 @@ export async function syncBankTransactions(token) {
         }
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Errore durante la sincronizzazione bancaria');
-    }
-
-    return data;
+    return parseApiResponse(response);
 }
 
 export async function getBankTransactions(token) {
@@ -78,11 +81,5 @@ export async function getBankTransactions(token) {
         }
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.message || 'Errore nel recupero delle transazioni bancarie');
-    }
-
-    return data;
+    return parseApiResponse(response);
 }

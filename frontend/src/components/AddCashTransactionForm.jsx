@@ -1,23 +1,75 @@
-import React, { useState } from 'react';
-import { addCashTransaction } from '../api/transactionApi';
+import React, { useEffect, useState } from 'react';
+import { addCashTransaction, updateManualTransaction } from '../api/transactionApi';
 
-function AddCashTransactionForm({ onTransactionAdded }) {
-    const [formData, setFormData] = useState({
-        amount: '',
-        category: '',
-        description: '',
-        date: ''
-    });
+const DEFAULT_FORM = {
+    amount: '',
+    category: '',
+    description: '',
+    date: ''
+};
 
+function AddCashTransactionForm({
+                                    onTransactionAdded,
+                                    editingTransaction,
+                                    onCancelEdit
+                                }) {
+    const [formData, setFormData] = useState(DEFAULT_FORM);
     const [message, setMessage] = useState('');
     const [isError, setIsError] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    useEffect(() => {
+        if (editingTransaction) {
+            setFormData({
+                amount: String(Math.abs(editingTransaction.amount || 0).toFixed(2)),
+                category: editingTransaction.category || '',
+                description: editingTransaction.description || '',
+                date: editingTransaction.date
+                    ? new Date(editingTransaction.date).toISOString().split('T')[0]
+                    : ''
+            });
+            setMessage('');
+            setIsError(false);
+        } else {
+            setFormData(DEFAULT_FORM);
+            setMessage('');
+            setIsError(false);
+        }
+    }, [editingTransaction]);
+
+    const handleAmountChange = (e) => {
+        const rawValue = e.target.value.replace(/\s/g, '').replace(',', '.');
+
+        if (rawValue === '' || /^\d+(\.\d{0,2})?$/.test(rawValue)) {
+            setFormData((prev) => ({
+                ...prev,
+                amount: rawValue
+            }));
+        }
+    };
+
+    const handleAmountBlur = () => {
+        if (!formData.amount) {
+            return;
+        }
+
+        const numericValue = Number(formData.amount);
+
+        if (!Number.isFinite(numericValue) || numericValue <= 0) {
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            amount: numericValue.toFixed(2)
+        }));
+    };
+
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
+        setFormData((prev) => ({
+            ...prev,
             [e.target.name]: e.target.value
-        });
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -34,28 +86,35 @@ function AddCashTransactionForm({ onTransactionAdded }) {
                 throw new Error('Utente non autenticato');
             }
 
-            await addCashTransaction(token, {
-                amount: -Math.abs(Number(formData.amount)),
+            const normalizedAmount = Number(formData.amount);
+
+            if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+                throw new Error('Inserisci un importo valido maggiore di 0');
+            }
+
+            const payload = {
+                amount: -Math.abs(Number(normalizedAmount.toFixed(2))),
                 category: formData.category,
                 description: formData.description,
                 date: formData.date
-            });
+            };
 
-            setMessage('Transazione cash aggiunta con successo');
+            if (editingTransaction) {
+                await updateManualTransaction(token, editingTransaction._id, payload);
+                setMessage('Transazione aggiornata con successo');
+            } else {
+                await addCashTransaction(token, payload);
+                setMessage('Transazione cash aggiunta con successo');
+            }
 
-            setFormData({
-                amount: '',
-                category: '',
-                description: '',
-                date: ''
-            });
+            setFormData(DEFAULT_FORM);
 
             if (onTransactionAdded) {
                 onTransactionAdded();
             }
         } catch (error) {
             setIsError(true);
-            setMessage(error.message);
+            setMessage(error.message || 'Errore durante il salvataggio della transazione');
         } finally {
             setLoading(false);
         }
@@ -63,16 +122,27 @@ function AddCashTransactionForm({ onTransactionAdded }) {
 
     return (
         <form className="transaction-form" onSubmit={handleSubmit}>
+            {editingTransaction && (
+                <button
+                    type="button"
+                    onClick={onCancelEdit}
+                    className="secondary-action-btn"
+                >
+                    Annulla modifica
+                </button>
+            )}
+
             <div className="currency-input-wrapper">
                 <span className="currency-symbol">€</span>
                 <input
                     className="currency-input"
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     name="amount"
                     placeholder="Importo"
                     value={formData.amount}
-                    onChange={handleChange}
+                    onChange={handleAmountChange}
+                    onBlur={handleAmountBlur}
                     required
                 />
             </div>
@@ -91,6 +161,8 @@ function AddCashTransactionForm({ onTransactionAdded }) {
                 <option value="Bills">Bollette</option>
                 <option value="Shopping">Shopping</option>
                 <option value="Health">Salute</option>
+                <option value="Housing">Casa</option>
+                <option value="Utilities">Utenze</option>
                 <option value="Other">Altro</option>
             </select>
 
@@ -111,7 +183,11 @@ function AddCashTransactionForm({ onTransactionAdded }) {
             />
 
             <button type="submit" className="primary-action-btn" disabled={loading}>
-                {loading ? 'Salvataggio...' : 'Aggiungi spesa cash'}
+                {loading
+                    ? 'Salvataggio...'
+                    : editingTransaction
+                        ? 'Aggiorna transazione'
+                        : 'Aggiungi spesa cash'}
             </button>
 
             {message && (

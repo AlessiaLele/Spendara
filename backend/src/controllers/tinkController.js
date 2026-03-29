@@ -115,6 +115,35 @@ async function handleCallback(req, res) {
     }
 }
 
+async function getBankConnectionStatus(req, res) {
+    try {
+        const userId = req.user._id;
+
+        const bankConnection = await BankConnection.findOne({
+            userId,
+            provider: 'tink',
+            status: 'connected'
+        });
+
+        return res.status(200).json({
+            isConnected: !!bankConnection,
+            bankConnection: bankConnection
+                ? {
+                    id: bankConnection._id,
+                    provider: bankConnection.provider,
+                    status: bankConnection.status,
+                    updatedAt: bankConnection.updatedAt
+                }
+                : null
+        });
+    } catch (error) {
+        console.error('Errore getBankConnectionStatus:', error);
+        return res.status(500).json({
+            message: 'Errore nel recupero dello stato collegamento banca'
+        });
+    }
+}
+
 async function getBankTransactions(req, res) {
     try {
         const userId = req.user._id;
@@ -193,6 +222,7 @@ async function syncBankTransactions(req, res) {
 module.exports = {
     startConnect,
     handleCallback,
+    getBankConnectionStatus,
     getBankTransactions,
     syncBankTransactions
 };

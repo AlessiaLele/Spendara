@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getBankConnectionStatus } from '../api/tinkApi';
 import { getDashboardData } from '../api/dashboardApi';
+import { getAllTransactions, deleteTransaction } from '../api/transactionApi';
 import AddCashTransactionForm from '../components/AddCashTransactionForm';
 import TransactionsList from '../components/TransactionsList';
 import '../styles/Dashboard.css';
@@ -10,6 +11,9 @@ function DashboardPage() {
     const navigate = useNavigate();
 
     const [dashboardData, setDashboardData] = useState(null);
+    const [allTransactions, setAllTransactions] = useState([]);
+    const [editingTransaction, setEditingTransaction] = useState(null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -32,13 +36,16 @@ function DashboardPage() {
                 return;
             }
 
-            const data = await getDashboardData(token);
-            console.log('DASHBOARD DATA:', data);
+            const [dashboardResponse, transactionsResponse] = await Promise.all([
+                getDashboardData(token),
+                getAllTransactions(token)
+            ]);
 
-            setDashboardData(data);
+            setDashboardData(dashboardResponse);
+            setAllTransactions(transactionsResponse);
         } catch (err) {
             console.error('ERRORE DASHBOARD:', err);
-            setError(err?.response?.data?.message || err.message || 'Errore nel caricamento della dashboard');
+            setError(err.message || 'Errore nel caricamento della dashboard');
         } finally {
             setLoading(false);
         }
@@ -55,10 +62,41 @@ function DashboardPage() {
         }).format(amount || 0);
     };
 
-    const formatSource = (source) => {
-        if (source === 'cash') return 'Cash';
-        if (source === 'simulated') return 'Simulata';
-        return 'Banca';
+    const handleEditTransaction = (transaction) => {
+        setEditingTransaction(transaction);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteTransaction = async (transactionId) => {
+        const confirmed = window.confirm('Vuoi davvero eliminare questa transazione?');
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            await deleteTransaction(token, transactionId);
+
+            if (editingTransaction?._id === transactionId) {
+                setEditingTransaction(null);
+            }
+
+            await loadDashboard();
+        } catch (err) {
+            console.error('ERRORE DELETE TRANSACTION:', err);
+            setError(err.message || 'Errore durante l’eliminazione della transazione');
+        }
+    };
+
+    const handleFormSuccess = async () => {
+        setEditingTransaction(null);
+        await loadDashboard();
     };
 
     if (loading) {
@@ -75,11 +113,15 @@ function DashboardPage() {
         totalTransactions: 0,
         totalIncome: 0,
         totalExpenses: 0,
-        balance: 0
+        balance: 0,
+        monthlyIncome: 0,
+        monthlyExpenses: 0,
+        monthlyNet: 0
     };
 
     const categories = dashboardData?.categories || [];
-    const recentTransactions = dashboardData?.recentTransactions || [];
+    const monthlyTrend = dashboardData?.monthlyTrend || [];
+    const topExpenses = dashboardData?.topExpenses || [];
 
     return (
         <div className="dashboard-wrapper">
@@ -191,30 +233,96 @@ function DashboardPage() {
 
                 <div className="dashboard-card form-card">
                     <div className="card-header">
-                        <h3>Aggiungi spesa cash</h3>
-                        <span>Completa le uscite non tracciate dal conto</span>
+                        <h3>{editingTransaction ? 'Modifica spesa cash' : 'Aggiungi spesa cash'}</h3>
+                        <span>
+                            {editingTransaction
+                                ? 'Aggiorna la transazione selezionata'
+                                : 'Completa le uscite non tracciate dal conto'}
+                        </span>
                     </div>
 
-                    <AddCashTransactionForm onTransactionAdded={loadDashboard} />
+                    <AddCashTransactionForm
+                        onTransactionAdded={handleFormSuccess}
+                        editingTransaction={editingTransaction}
+                        onCancelEdit={() => setEditingTransaction(null)}
+                    />
+                </div>
+            </div>
+
+            <div className="dashboard-main-grid">
+                <div className="dashboard-card large-card">
+                    <div className="card-header">
+                        <h3>Trend ultimi 6 mesi</h3>
+                        <span>Entrate, uscite e netto per mese</span>
+                    </div>
+
+                    {monthlyTrend.length === 0 ? (
+                        <div className="empty-state">
+                            Nessun trend disponibile.
+                        </div>
+                    ) : (
+                        <div className="category-list">
+                            {monthlyTrend.map((item) => (
+                                <div key={item.month} className="category-item">
+                                    <div className="category-top">
+                                        <span>{item.month}</span>
+                                        <span>{formatAmount(item.net)}</span>
+                                    </div>
+
+                                    <div className="progress-meta">
+                                        <span>Entrate: {formatAmount(item.income)}</span>
+                                        <span>Uscite: {formatAmount(item.expenses)}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="dashboard-card form-card">
+                    <div className="card-header">
+                        <h3>Top spese</h3>
+                        <span>Movimenti negativi più pesanti</span>
+                    </div>
+
+                    {topExpenses.length === 0 ? (
+                        <div className="empty-state">
+                            Nessuna spesa disponibile.
+                        </div>
+                    ) : (
+                        <div className="category-list">
+                            {topExpenses.map((transaction) => (
+                                <div
+                                    key={transaction._id || transaction.externalTransactionId}
+                                    className="category-item"
+                                >
+                                    <div className="category-top">
+                                        <span>{transaction.description || 'Senza descrizione'}</span>
+                                        <span>{formatAmount(Math.abs(transaction.amount))}</span>
+                                    </div>
+
+                                    <div className="progress-meta">
+                                        <span>{transaction.category || 'Uncategorized'}</span>
+                                        <span>{new Date(transaction.date).toLocaleDateString('it-IT')}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
             <div className="dashboard-card transactions-card">
                 <div className="card-header">
-                    <h3>Transazioni recenti</h3>
-                    <span>Movimenti più recenti disponibili</span>
+                    <h3>Tutte le transazioni</h3>
+                    <span>Le transazioni cash possono essere modificate o eliminate</span>
                 </div>
 
-                {recentTransactions.length === 0 ? (
-                    <div className="empty-state">
-                        Nessuna transazione trovata.
-                        <span>
-                            Dopo il collegamento del conto o l’inserimento manuale, i dati appariranno qui.
-                        </span>
-                    </div>
-                ) : (
-                    <TransactionsList transactions={recentTransactions} />
-                )}
+                <TransactionsList
+                    transactions={allTransactions}
+                    onEditTransaction={handleEditTransaction}
+                    onDeleteTransaction={handleDeleteTransaction}
+                />
             </div>
         </div>
     );

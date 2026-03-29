@@ -1,26 +1,31 @@
 const Transaction = require('../models/Transaction');
-const { generateTransaction, generateHistoricalTransactions } = require('../services/transactionService');
+const { normalizeTransactionInput, normalizeCategory } = require('../utils/mapTransaction');
 
 async function addCashTransaction(req, res) {
     try {
         const userId = req.user._id;
         const { amount, category, description, date } = req.body;
 
-        if (!amount || !category || !date) {
+        if (amount === undefined || amount === null || !category || !date) {
             return res.status(400).json({
                 message: 'Amount, category e date sono obbligatori'
             });
         }
 
-        const transaction = await Transaction.create({
-            userId,
-            amount: Number(amount),
-            category,
-            description: description || '',
-            date: new Date(date),
+        const normalizedTransaction = normalizeTransactionInput({
+            amount,
+            category: normalizeCategory(category),
+            description,
+            date,
             currencyCode: 'EUR',
             source: 'cash',
-            externalTransactionId: ''
+            externalTransactionId: '',
+            accountId: ''
+        });
+
+        const transaction = await Transaction.create({
+            userId,
+            ...normalizedTransaction
         });
 
         return res.status(201).json({
@@ -30,7 +35,7 @@ async function addCashTransaction(req, res) {
     } catch (error) {
         console.error('Errore addCashTransaction:', error.message);
         return res.status(500).json({
-            message: 'Errore durante l’inserimento della transazione cash'
+            message: error.message || 'Errore durante l’inserimento della transazione cash'
         });
     }
 }
@@ -50,6 +55,93 @@ async function getAllTransactions(req, res) {
     }
 }
 
+async function updateTransactionCategory(req, res) {
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+        const { category } = req.body;
+
+        const normalizedCategoryValue = normalizeCategory(category);
+
+        const transaction = await Transaction.findOne({ _id: id, userId });
+
+        if (!transaction) {
+            return res.status(404).json({
+                message: 'Transazione non trovata'
+            });
+        }
+
+        transaction.category = normalizedCategoryValue;
+        await transaction.save();
+
+        return res.status(200).json({
+            message: 'Categoria aggiornata con successo',
+            transaction
+        });
+    } catch (error) {
+        console.error('Errore updateTransactionCategory:', error.message);
+        return res.status(500).json({
+            message: 'Errore durante l’aggiornamento della categoria'
+        });
+    }
+}
+
+async function updateManualTransaction(req, res) {
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+        const { amount, category, description, date } = req.body;
+
+        const transaction = await Transaction.findOne({ _id: id, userId });
+
+        if (!transaction) {
+            return res.status(404).json({
+                message: 'Transazione non trovata'
+            });
+        }
+
+        if (transaction.source !== 'cash') {
+            return res.status(400).json({
+                message: 'Puoi modificare solo le transazioni inserite manualmente'
+            });
+        }
+
+        if (amount === undefined || amount === null || !category || !date) {
+            return res.status(400).json({
+                message: 'Amount, category e date sono obbligatori'
+            });
+        }
+
+        const normalizedTransaction = normalizeTransactionInput({
+            externalTransactionId: '',
+            accountId: '',
+            amount,
+            currencyCode: transaction.currencyCode || 'EUR',
+            description,
+            date,
+            category: normalizeCategory(category),
+            source: 'cash'
+        });
+
+        transaction.amount = normalizedTransaction.amount;
+        transaction.category = normalizedTransaction.category;
+        transaction.description = normalizedTransaction.description;
+        transaction.date = normalizedTransaction.date;
+
+        await transaction.save();
+
+        return res.status(200).json({
+            message: 'Transazione manuale aggiornata con successo',
+            transaction
+        });
+    } catch (error) {
+        console.error('Errore updateManualTransaction:', error.message);
+        return res.status(500).json({
+            message: error.message || 'Errore durante la modifica della transazione'
+        });
+    }
+}
+
 async function deleteTransaction(req, res) {
     try {
         const userId = req.user._id;
@@ -60,6 +152,12 @@ async function deleteTransaction(req, res) {
         if (!transaction) {
             return res.status(404).json({
                 message: 'Transazione non trovata'
+            });
+        }
+
+        if (transaction.source !== 'cash') {
+            return res.status(400).json({
+                message: 'Puoi eliminare solo le transazioni inserite manualmente'
             });
         }
 
@@ -76,59 +174,10 @@ async function deleteTransaction(req, res) {
     }
 }
 
-async function seedTransactions(req, res) {
-    try {
-        const userId = req.user._id;
-        const { days = 90 } = req.body;
-
-        const transactions = generateHistoricalTransactions(userId, Number(days));
-
-        console.log('USER ID:', userId);
-        console.log('DAYS:', days);
-        console.log('GENERATED TRANSACTIONS:', transactions.length);
-        console.log('FIRST TRANSACTION:', transactions[0]);
-
-        await Transaction.insertMany(transactions);
-
-        return res.status(201).json({
-            message: `${transactions.length} transazioni simulate create con successo`
-        });
-    } catch (error) {
-        console.error('Errore seedTransactions:', error);
-        return res.status(500).json({
-            message: 'Errore durante la generazione dello storico'
-        });
-    }
-}
-
-async function addDailySimulatedTransactions(req, res) {
-    try {
-        const userId = req.user._id;
-        const count = 2 + Math.floor(Math.random() * 2); // 2 o 3
-
-        const docs = [];
-        for (let i = 0; i < count; i++) {
-            docs.push(generateTransaction(userId, new Date()));
-        }
-
-        const created = await Transaction.insertMany(docs);
-
-        return res.status(201).json({
-            message: `${created.length} transazioni giornaliere aggiunte`,
-            transactions: created
-        });
-    } catch (error) {
-        console.error('Errore addDailySimulatedTransactions:', error.message);
-        return res.status(500).json({
-            message: 'Errore durante la generazione delle transazioni giornaliere'
-        });
-    }
-}
-
 module.exports = {
     addCashTransaction,
     getAllTransactions,
-    deleteTransaction,
-    seedTransactions,
-    addDailySimulatedTransactions
+    updateTransactionCategory,
+    updateManualTransaction,
+    deleteTransaction
 };

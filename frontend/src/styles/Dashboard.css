@@ -839,3 +839,60 @@ tbody tr:hover {
     font-size: 14px;
     font-weight: 600;
 }
+
+.table-edit-input {
+    width: 100%;
+    min-width: 120px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 14px;
+}
+
+.table-edit-input:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.table-amount-editor {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.table-currency-symbol {
+    font-weight: 700;
+    color: #374151;
+}
+
+.amount-input {
+    min-width: 100px;
+}
+
+.edit-action-btn,
+.delete-action-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.edit-action-btn {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.delete-action-btn {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.edit-action-btn:disabled,
+.delete-action-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}

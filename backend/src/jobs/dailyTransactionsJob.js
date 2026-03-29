@@ -1,49 +1,34 @@
 const cron = require('node-cron');
-const Transaction = require('../models/Transaction');
-const User = require('../models/User');
-const { generateTransaction } = require('../services/transactionService');
+const { v4: uuidv4 } = require('uuid');
 
-cron.schedule('0 9 * * *', async () => {
-    console.log('Avvio job transazioni giornaliere');
+let userTransactions = [];
 
-    try {
-        const users = await User.find();
+// Generatore base
+function generateTransaction() {
+    return {
+        id: uuidv4(),
+        amount: (Math.random() * -100).toFixed(2),
+        currency: "EUR",
+        description: "Daily Auto Transaction",
+        date: new Date().toISOString()
+    };
+}
 
-        for (const user of users) {
-            const startOfToday = new Date();
-            startOfToday.setHours(0, 0, 0, 0);
+// Job: eseguito ogni giorno alle 00:00
+function startDailyTransactionsJob() {
+    cron.schedule('0 0 * * *', () => {
+        console.log("Running daily transaction job...");
 
-            const alreadyRun = await Transaction.findOne({
-                userId: user._id,
-                source: 'simulated',
-                date: { $gte: startOfToday }
-            });
+        const newTransactions = [
+            generateTransaction(),
+            generateTransaction()
+        ];
 
-            if (alreadyRun) {
-                console.log(`Transazioni già generate oggi per utente ${user._id}`);
-                continue;
-            }
+        // aggiunge esattamente 2
+        userTransactions = [...newTransactions, ...userTransactions];
 
-            const accountId = user.tinkAccountId || 'demo-account';
-            const count = 2 + Math.floor(Math.random() * 2);
-            const docs = [];
+        console.log("Added 2 new daily transactions");
+    });
+}
 
-            for (let i = 0; i < count; i++) {
-                const date = new Date();
-                date.setHours(9 + Math.floor(Math.random() * 10));
-                date.setMinutes(Math.floor(Math.random() * 60));
-                date.setSeconds(Math.floor(Math.random() * 60));
-
-                docs.push(generateTransaction(user._id, accountId, date));
-            }
-
-            if (docs.length) {
-                await Transaction.insertMany(docs);
-            }
-        }
-
-        console.log('Job completato');
-    } catch (err) {
-        console.error('Errore cron job:', err);
-    }
-});
+module.exports = startDailyTransactionsJob;
