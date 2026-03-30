@@ -896,3 +896,54 @@ tbody tr:hover {
     opacity: 0.65;
     cursor: not-allowed;
 }
+
+.category-chart-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 380px) 1fr;
+    gap: 20px;
+    align-items: center;
+}
+
+.compact-category-layout {
+    min-height: 320px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 320px;
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.dashboard-main-grid-70-30 {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 75% 25%;
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 24px;
+}
+
+.dashboard-main-grid-70-30 > .large-card,
+.dashboard-main-grid-70-30 > .form-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.dashboard-main-grid-70-30 .form-card {
+    align-self: stretch;
+}
+
+@media (max-width: 900px) {
+    .dashboard-main-grid-70-30 {
+        grid-template-columns: 1fr;
+    }
+}

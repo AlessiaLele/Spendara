@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    ResponsiveContainer,
+    Legend
+} from 'recharts';
 import { getBankConnectionStatus } from '../api/tinkApi';
 import { getDashboardData } from '../api/dashboardApi';
 import { getAllTransactions, deleteTransaction } from '../api/transactionApi';
 import AddCashTransactionForm from '../components/AddCashTransactionForm';
 import TransactionsList from '../components/TransactionsList';
 import '../styles/Dashboard.css';
+
+const COLORS = ['#4f46e5', '#7c3aed', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444'];
 
 function DashboardPage() {
     const navigate = useNavigate();
@@ -123,6 +133,11 @@ function DashboardPage() {
     const monthlyTrend = dashboardData?.monthlyTrend || [];
     const topExpenses = dashboardData?.topExpenses || [];
 
+    const pieData = categories.map((category) => ({
+        name: category.name,
+        value: category.value
+    }));
+
     return (
         <div className="dashboard-wrapper">
             <div className="dashboard-header hero">
@@ -175,7 +190,7 @@ function DashboardPage() {
                 <div className="stat-card">
                     <p className="stat-label">Numero transazioni</p>
                     <h2>{summary.totalTransactions}</h2>
-                    <p className="stat-caption">Banca + inserimenti manuali + simulate</p>
+                    <p className="stat-caption">Banca + inserimenti manuali</p>
                 </div>
 
                 <div className="stat-card">
@@ -185,48 +200,94 @@ function DashboardPage() {
                 </div>
             </div>
 
-            <div className="dashboard-main-grid">
-                <div className="dashboard-card large-card">
+            <div
+                className="dashboard-main-grid-70-30"
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: '70% 30%',
+                    gap: '24px',
+                    alignItems: 'stretch'
+                }}
+            >
+                <div
+                    className="dashboard-card large-card"
+                    style={{ width: '100%', minWidth: 0 }}
+                >
                     <div className="card-header">
-                        <h3>Categorie principali</h3>
+                        <h3>Spese per categoria</h3>
                         <span>Distribuzione attuale</span>
                     </div>
 
-                    {categories.length === 0 ? (
+                    {pieData.length === 0 ? (
                         <div className="empty-state">
-                            Nessuna categoria disponibile.
-                            <span>Importa o aggiungi transazioni per visualizzare la distribuzione.</span>
+                            Nessun dato disponibile.
+                            <span>Aggiungi almeno una spesa per visualizzare il grafico.</span>
                         </div>
                     ) : (
-                        <div className="category-list">
-                            {categories.slice(0, 5).map((category) => (
-                                <div key={category.name} className="category-item">
-                                    <div className="category-top">
-                                        <span>{category.name}</span>
-                                        <span>{formatAmount(category.value)}</span>
-                                    </div>
+                        <div className="category-chart-layout compact-category-layout">
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={pieData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={95}
+                                            label
+                                        >
+                                            {pieData.map((entry, index) => (
+                                                <Cell
+                                                    key={`cell-${entry.name}-${index}`}
+                                                    fill={COLORS[index % COLORS.length]}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => formatAmount(value)} />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
 
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{
-                                                width: `${summary.totalExpenses > 0
-                                                    ? (category.value / summary.totalExpenses) * 100
-                                                    : 0}%`
-                                            }}
-                                        />
-                                    </div>
+                            <div className="category-list">
+                                {categories.map((category, index) => {
+                                    const percentage =
+                                        summary.totalExpenses > 0
+                                            ? (category.value / summary.totalExpenses) * 100
+                                            : 0;
 
-                                    <div className="progress-meta">
-                                        <span>Peso sul totale uscite</span>
-                                        <span>
-                                            {summary.totalExpenses > 0
-                                                ? `${((category.value / summary.totalExpenses) * 100).toFixed(1)}%`
-                                                : '0%'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
+                                    return (
+                                        <div className="category-item" key={category.name}>
+                                            <div className="category-top">
+                                                <span>
+                                                    <span
+                                                        className="legend-dot"
+                                                        style={{
+                                                            backgroundColor: COLORS[index % COLORS.length]
+                                                        }}
+                                                    />
+                                                    {category.name}
+                                                </span>
+                                                <span>{formatAmount(category.value)}</span>
+                                            </div>
+
+                                            <div className="progress-bar">
+                                                <div
+                                                    className="progress-fill"
+                                                    style={{
+                                                        width: `${Math.min(percentage, 100)}%`
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div className="progress-meta">
+                                                <span>{percentage.toFixed(1)}% del totale uscite</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
