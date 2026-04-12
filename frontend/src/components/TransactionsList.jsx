@@ -12,7 +12,6 @@ function TransactionsList({
 
     const formatSource = (source) => {
         if (source === 'cash') return 'Cash';
-        if (source === 'simulated') return 'Simulata';
         return 'Banca';
     };
 

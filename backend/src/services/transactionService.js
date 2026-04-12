@@ -34,7 +34,7 @@ function randomAmount(category) {
 }
 
 function generateTransaction(userId, date, accountId = 'demo-account') {
-    const categories = ['groceries', 'food', 'transport', 'shopping', 'entertainment', 'bills'];
+    const categories = ['alimentari', 'ristoranti', 'trasporti', 'shopping', 'intrattenimento', 'bollette'];
     const category = randomFrom(categories);
 
     return {
@@ -46,7 +46,7 @@ function generateTransaction(userId, date, accountId = 'demo-account') {
         date,
         category,
         source: 'bank',
-        externalTransactionId: `sim-${userId}-${date.getTime()}-${Math.floor(Math.random() * 100000)}`
+        externalTransactionId: `bank-${userId}-${date.getTime()}-${Math.floor(Math.random() * 100000)}`
     };
 }
 
@@ -82,7 +82,7 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
                 date: salaryDate,
                 category: 'salary',
                 source: 'bank',
-                externalTransactionId: ''
+                externalTransactionId: `bank-salary-${userId}-${salaryDate.getTime()}`
             });
         }
     }
