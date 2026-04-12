@@ -143,14 +143,23 @@ function DashboardPage() {
     const monthlyTrend = dashboardData?.monthlyTrend || [];
     const topExpenses = dashboardData?.topExpenses || [];
 
-    const forecast = dashboardData?.forecast || {
-        currentBalance: 0,
-        averageDailyExpenses: 0,
-        projectedRemainingExpenses: 0,
-        predictedEndBalance: 0,
-        daysRemaining: 0,
-        activeExpenseDays: 0,
-        confidence: 'bassa'
+    const forecast = {
+        currentBalance: dashboardData?.forecast?.currentBalance ?? 0,
+        remainingRecurringIncome: dashboardData?.forecast?.remainingRecurringIncome ?? 0,
+        remainingRecurringExpenses: dashboardData?.forecast?.remainingRecurringExpenses ?? 0,
+        averageDailyVariableExpenses: dashboardData?.forecast?.averageDailyVariableExpenses ?? 0,
+        projectedVariableExpenses: dashboardData?.forecast?.projectedVariableExpenses ?? 0,
+        predictedEndBalance: dashboardData?.forecast?.predictedEndBalance ?? 0,
+        daysRemaining: dashboardData?.forecast?.daysRemaining ?? 0,
+        activeExpenseDays: dashboardData?.forecast?.activeExpenseDays ?? 0,
+        confidence: dashboardData?.forecast?.confidence ?? 'bassa',
+        recurringSummary: {
+            detectedSeries: dashboardData?.forecast?.recurringSummary?.detectedSeries ?? 0,
+            futureIncomeItems: dashboardData?.forecast?.recurringSummary?.futureIncomeItems ?? 0,
+            futureExpenseItems: dashboardData?.forecast?.recurringSummary?.futureExpenseItems ?? 0
+        },
+        recurringIncomeItems: dashboardData?.forecast?.recurringIncomeItems ?? [],
+        recurringExpenseItems: dashboardData?.forecast?.recurringExpenseItems ?? []
     };
 
     const pieData = categories.map((category) => ({
@@ -244,7 +253,7 @@ function DashboardPage() {
             <div className="dashboard-card forecast-card">
                 <div className="card-header">
                     <h3>Come viene calcolata la previsione</h3>
-                    <span>Prima versione del motore previsionale</span>
+                    <span>Seconda versione del motore previsionale</span>
                 </div>
 
                 <div className="category-list">
@@ -257,15 +266,35 @@ function DashboardPage() {
 
                     <div className="category-item">
                         <div className="category-top">
-                            <span>Media uscite giornaliere</span>
-                            <span>{formatAmount(forecast.averageDailyExpenses)}</span>
+                            <span>Entrate ricorrenti rimanenti</span>
+                            <span>{formatAmount(forecast.remainingRecurringIncome)}</span>
+                        </div>
+                        <div className="progress-meta">
+                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureIncomeItems  ?? 0}</span>
                         </div>
                     </div>
 
                     <div className="category-item">
                         <div className="category-top">
-                            <span>Uscite stimate rimanenti</span>
-                            <span>{formatAmount(forecast.projectedRemainingExpenses)}</span>
+                            <span>Uscite ricorrenti rimanenti</span>
+                            <span>{formatAmount(forecast.remainingRecurringExpenses)}</span>
+                        </div>
+                        <div className="progress-meta">
+                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureExpenseItems ?? 0}</span>
+                        </div>
+                    </div>
+
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Media uscite variabili giornaliere</span>
+                            <span>{formatAmount(forecast.averageDailyVariableExpenses)}</span>
+                        </div>
+                    </div>
+
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Uscite variabili stimate rimanenti</span>
+                            <span>{formatAmount(forecast.projectedVariableExpenses)}</span>
                         </div>
                     </div>
 
@@ -278,6 +307,76 @@ function DashboardPage() {
                             <span>Giorni rimanenti: {forecast.daysRemaining}</span>
                             <span>Affidabilità: {forecast.confidence}</span>
                         </div>
+                    </div>
+                </div>
+
+                <div className="forecast-recurring-grid">
+                    <div className="forecast-recurring-column">
+                        <div className="card-header">
+                            <h3>Entrate ricorrenti previste</h3>
+                            <span>{forecast.recurringIncomeItems.length} rilevate</span>
+                        </div>
+
+                        {forecast.recurringIncomeItems.length === 0 ? (
+                            <div className="empty-state">
+                                Nessuna entrata ricorrente futura rilevata.
+                            </div>
+                        ) : (
+                            <div className="category-list">
+                                {forecast.recurringIncomeItems.map((item, index) => (
+                                    <div
+                                        key={`${item.description}-${item.predictedDate}-${index}`}
+                                        className="category-item"
+                                    >
+                                        <div className="category-top">
+                                            <span>{item.description}</span>
+                                            <span>{formatAmount(item.amount)}</span>
+                                        </div>
+                                        <div className="progress-meta">
+                                            <span>{item.category}</span>
+                                            <span>
+                                    Prevista il{' '}
+                                                {new Date(item.predictedDate).toLocaleDateString('it-IT')}
+                                </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="forecast-recurring-column">
+                        <div className="card-header">
+                            <h3>Uscite ricorrenti previste</h3>
+                            <span>{forecast.recurringExpenseItems.length} rilevate</span>
+                        </div>
+
+                        {forecast.recurringExpenseItems.length === 0 ? (
+                            <div className="empty-state">
+                                Nessuna uscita ricorrente futura rilevata.
+                            </div>
+                        ) : (
+                            <div className="category-list">
+                                {forecast.recurringExpenseItems.map((item, index) => (
+                                    <div
+                                        key={`${item.description}-${item.predictedDate}-${index}`}
+                                        className="category-item"
+                                    >
+                                        <div className="category-top">
+                                            <span>{item.description}</span>
+                                            <span>{formatAmount(item.amount)}</span>
+                                        </div>
+                                        <div className="progress-meta">
+                                            <span>{item.category}</span>
+                                            <span>
+                                    Prevista il{' '}
+                                                {new Date(item.predictedDate).toLocaleDateString('it-IT')}
+                                </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
