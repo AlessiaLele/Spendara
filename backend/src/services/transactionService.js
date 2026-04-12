@@ -1,13 +1,11 @@
-// src/services/transactionService.js
-
 const merchantsByCategory = {
-    groceries: ['Carrefour', 'Conad', 'Esselunga', 'Lidl'],
-    food: ['McDonald’s', 'Burger King', 'Pizzeria Roma', 'Sushi House'],
-    transport: ['Uber', 'Trenitalia', 'Eni', 'Q8'],
+    spesa: ['Carrefour', 'Conad', 'Esselunga', 'Lidl'],
+    ristoranti: ['McDonald’s', 'Burger King', 'Pizzeria Roma', 'Sushi House'],
+    trasporti: ['Uber', 'Trenitalia', 'Eni', 'Q8'],
     shopping: ['Amazon', 'Zara', 'H&M', 'MediaWorld'],
-    bills: ['Enel', 'TIM', 'Fastweb', 'Acqua Servizi'],
-    entertainment: ['Netflix', 'Spotify', 'Cinema City'],
-    salary: ['Stipendio Azienda']
+    bollette: ['Enel', 'TIM', 'Fastweb', 'Acqua Servizi'],
+    intrattenimento: ['Netflix', 'Spotify', 'Cinema City'],
+    stipendio: ['Stipendio Azienda']
 };
 
 function randomFrom(arr) {
@@ -47,8 +45,8 @@ function generateTransaction(userId, date, accountId = 'demo-account') {
         description: randomFrom(merchantsByCategory[category]),
         date,
         category,
-        source: 'simulated',
-        externalTransactionId: ''
+        source: 'bank',
+        externalTransactionId: `sim-${userId}-${date.getTime()}-${Math.floor(Math.random() * 100000)}`
     };
 }
 
@@ -83,7 +81,7 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
                 description: 'Stipendio Azienda',
                 date: salaryDate,
                 category: 'salary',
-                source: 'simulated',
+                source: 'bank',
                 externalTransactionId: ''
             });
         }
@@ -92,7 +90,69 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
     return transactions;
 }
 
+function generateThreeDailyTransactions(userId, date, accountId = 'demo-account') {
+    const transactions = [];
+
+    const baseDate = new Date(date);
+    baseDate.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 3; i++) {
+        const txDate = new Date(baseDate);
+        txDate.setHours(8 + Math.floor(Math.random() * 12));
+        txDate.setMinutes(Math.floor(Math.random() * 60));
+        txDate.setSeconds(Math.floor(Math.random() * 60));
+
+        transactions.push(generateTransaction(userId, txDate, accountId));
+    }
+
+    // stipendio il 27 o 28 del mese
+    if (baseDate.getDate() === 27 || baseDate.getDate() === 28) {
+        const salaryDate = new Date(baseDate);
+        salaryDate.setHours(9, 0, 0, 0);
+
+        transactions.push({
+            userId,
+            accountId,
+            amount: 1650,
+            currencyCode: 'EUR',
+            description: 'Stipendio Azienda',
+            date: salaryDate,
+            category: 'salary',
+            source: 'bank',
+            externalTransactionId: `sim-salary-${userId}-${salaryDate.getTime()}`
+        });
+    }
+
+    return transactions;
+}
+
+function generateMissingDailyTransactions(userId, lastSimulatedBatchDate, accountId = 'demo-account') {
+    const transactions = [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let startDate;
+
+    if (!lastSimulatedBatchDate) {
+        startDate = new Date(today);
+    } else {
+        startDate = new Date(lastSimulatedBatchDate);
+        startDate.setHours(0, 0, 0, 0);
+        startDate.setDate(startDate.getDate() + 1);
+    }
+
+    while (startDate <= today) {
+        transactions.push(...generateThreeDailyTransactions(userId, startDate, accountId));
+        startDate.setDate(startDate.getDate() + 1);
+    }
+
+    return transactions;
+}
+
 module.exports = {
     generateTransaction,
-    generateHistoricalTransactions
+    generateHistoricalTransactions,
+    generateThreeDailyTransactions,
+    generateMissingDailyTransactions
 };

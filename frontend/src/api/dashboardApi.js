@@ -14,14 +14,13 @@ async function parseApiResponse(response) {
     }
 
     const text = await response.text();
-
-    throw new Error(
-        text?.trim() || 'Risposta non valida dal server'
-    );
+    throw new Error(text?.trim() || 'Risposta non valida dal server');
 }
 
-export async function getDashboardData(token) {
-    const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+export async function getDashboardData(token, period = 'monthly') {
+    const query = new URLSearchParams({ period });
+
+    const response = await fetch(`${API_BASE_URL}/api/dashboard?${query.toString()}`, {
         method: 'GET',
         headers: {
             Authorization: `Bearer ${token}`

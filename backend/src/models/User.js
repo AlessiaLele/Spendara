@@ -16,6 +16,10 @@ const userSchema = new mongoose.Schema(
         password: {
             type: String,
             required: true
+        },
+        lastSimulatedBatchDate: {
+            type: Date,
+            default: null
         }
     },
     { timestamps: true }

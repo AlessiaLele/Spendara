@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { getBankConnectionStatus } from '../api/tinkApi';
 import { getDashboardData } from '../api/dashboardApi';
-import { getAllTransactions, deleteTransaction } from '../api/transactionApi';
+import { deleteTransaction } from '../api/transactionApi';
 import AddCashTransactionForm from '../components/AddCashTransactionForm';
 import TransactionsList from '../components/TransactionsList';
 import '../styles/Dashboard.css';
@@ -23,11 +23,12 @@ function DashboardPage() {
     const [dashboardData, setDashboardData] = useState(null);
     const [allTransactions, setAllTransactions] = useState([]);
     const [editingTransaction, setEditingTransaction] = useState(null);
+    const [selectedPeriod, setSelectedPeriod] = useState('monthly');
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const loadDashboard = async () => {
+    const loadDashboard = async (period = selectedPeriod) => {
         try {
             setLoading(true);
             setError('');
@@ -46,13 +47,10 @@ function DashboardPage() {
                 return;
             }
 
-            const [dashboardResponse, transactionsResponse] = await Promise.all([
-                getDashboardData(token),
-                getAllTransactions(token)
-            ]);
+            const dashboardResponse = await getDashboardData(token, period);
 
             setDashboardData(dashboardResponse);
-            setAllTransactions(transactionsResponse);
+            setAllTransactions(dashboardResponse.allTransactions || []);
         } catch (err) {
             console.error('ERRORE DASHBOARD:', err);
             setError(err.message || 'Errore nel caricamento della dashboard');
@@ -62,14 +60,29 @@ function DashboardPage() {
     };
 
     useEffect(() => {
-        loadDashboard();
-    }, []);
+        loadDashboard(selectedPeriod);
+    }, [selectedPeriod]);
 
     const formatAmount = (amount) => {
         return new Intl.NumberFormat('it-IT', {
             style: 'currency',
             currency: 'EUR'
         }).format(amount || 0);
+    };
+
+    const formatPeriodLabel = (period) => {
+        switch (period) {
+            case 'daily':
+                return 'giornaliero';
+            case 'weekly':
+                return 'settimanale';
+            case 'monthly':
+                return 'mensile';
+            case 'yearly':
+                return 'annuale';
+            default:
+                return 'mensile';
+        }
     };
 
     const handleEditTransaction = (transaction) => {
@@ -97,7 +110,7 @@ function DashboardPage() {
                 setEditingTransaction(null);
             }
 
-            await loadDashboard();
+            await loadDashboard(selectedPeriod);
         } catch (err) {
             console.error('ERRORE DELETE TRANSACTION:', err);
             setError(err.message || 'Errore durante l’eliminazione della transazione');
@@ -106,7 +119,7 @@ function DashboardPage() {
 
     const handleFormSuccess = async () => {
         setEditingTransaction(null);
-        await loadDashboard();
+        await loadDashboard(selectedPeriod);
     };
 
     if (loading) {
@@ -123,15 +136,22 @@ function DashboardPage() {
         totalTransactions: 0,
         totalIncome: 0,
         totalExpenses: 0,
-        balance: 0,
-        monthlyIncome: 0,
-        monthlyExpenses: 0,
-        monthlyNet: 0
+        balance: 0
     };
 
     const categories = dashboardData?.categories || [];
     const monthlyTrend = dashboardData?.monthlyTrend || [];
     const topExpenses = dashboardData?.topExpenses || [];
+
+    const forecast = dashboardData?.forecast || {
+        currentBalance: 0,
+        averageDailyExpenses: 0,
+        projectedRemainingExpenses: 0,
+        predictedEndBalance: 0,
+        daysRemaining: 0,
+        activeExpenseDays: 0,
+        confidence: 'bassa'
+    };
 
     const pieData = categories.map((category) => ({
         name: category.name,
@@ -156,18 +176,35 @@ function DashboardPage() {
                         >
                             Gestisci collegamento conto
                         </button>
+
+                        <div className="period-dropdown-wrap">
+                            <label htmlFor="period-select" className="period-label">
+                                Periodo
+                            </label>
+                            <select
+                                id="period-select"
+                                className="period-select"
+                                value={selectedPeriod}
+                                onChange={(e) => setSelectedPeriod(e.target.value)}
+                            >
+                                <option value="daily">Giornaliero</option>
+                                <option value="weekly">Settimanale</option>
+                                <option value="monthly">Mensile</option>
+                                <option value="yearly">Annuale</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 <div className="hero-right">
                     <div className="hero-stat">
-                        <span>Transazioni totali</span>
+                        <span>Transazioni totali ({formatPeriodLabel(selectedPeriod)})</span>
                         <strong>{summary.totalTransactions}</strong>
                     </div>
 
                     <div className="hero-stat">
-                        <span>Saldo stimato</span>
-                        <strong>{formatAmount(summary.balance)}</strong>
+                        <span>Previsione fine mese</span>
+                        <strong>{formatAmount(forecast.predictedEndBalance)}</strong>
                     </div>
                 </div>
             </div>
@@ -176,27 +213,72 @@ function DashboardPage() {
 
             <div className="stats-grid">
                 <div className="stat-card">
-                    <p className="stat-label">Totale entrate</p>
-                    <h2>{formatAmount(summary.totalIncome)}</h2>
-                    <p className="stat-caption">Movimenti positivi disponibili</p>
+                    <p className="stat-label">Previsione mese</p>
+                    <h2>{formatAmount(forecast.predictedEndBalance)}</h2>
+                    <p className="stat-caption">
+                        Media uscite: {formatAmount(forecast.averageDailyExpenses)}/giorno ·
+                        Mancano {forecast.daysRemaining} giorni ·
+                        Affidabilità {forecast.confidence}
+                    </p>
                 </div>
 
                 <div className="stat-card">
                     <p className="stat-label">Totale uscite</p>
                     <h2>{formatAmount(summary.totalExpenses)}</h2>
-                    <p className="stat-caption">Movimenti negativi disponibili</p>
+                    <p className="stat-caption">Filtrate per periodo selezionato</p>
                 </div>
 
                 <div className="stat-card">
                     <p className="stat-label">Numero transazioni</p>
                     <h2>{summary.totalTransactions}</h2>
-                    <p className="stat-caption">Banca + inserimenti manuali</p>
+                    <p className="stat-caption">Solo periodo selezionato</p>
                 </div>
 
                 <div className="stat-card">
                     <p className="stat-label">Saldo</p>
                     <h2>{formatAmount(summary.balance)}</h2>
-                    <p className="stat-caption">Entrate meno uscite</p>
+                    <p className="stat-caption">Entrate meno uscite nel periodo</p>
+                </div>
+            </div>
+
+            <div className="dashboard-card forecast-card">
+                <div className="card-header">
+                    <h3>Come viene calcolata la previsione</h3>
+                    <span>Prima versione del motore previsionale</span>
+                </div>
+
+                <div className="category-list">
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Saldo corrente del mese</span>
+                            <span>{formatAmount(forecast.currentBalance)}</span>
+                        </div>
+                    </div>
+
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Media uscite giornaliere</span>
+                            <span>{formatAmount(forecast.averageDailyExpenses)}</span>
+                        </div>
+                    </div>
+
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Uscite stimate rimanenti</span>
+                            <span>{formatAmount(forecast.projectedRemainingExpenses)}</span>
+                        </div>
+                    </div>
+
+                    <div className="category-item">
+                        <div className="category-top">
+                            <span>Previsione fine mese</span>
+                            <span>{formatAmount(forecast.predictedEndBalance)}</span>
+                        </div>
+                        <div className="progress-meta">
+                            <span>Giorni rimanenti: {forecast.daysRemaining}</span>
+                            <span>Affidabilità: {forecast.confidence}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -215,13 +297,13 @@ function DashboardPage() {
                 >
                     <div className="card-header">
                         <h3>Spese per categoria</h3>
-                        <span>Distribuzione attuale</span>
+                        <span>Distribuzione nel periodo selezionato</span>
                     </div>
 
                     {pieData.length === 0 ? (
                         <div className="empty-state">
                             Nessun dato disponibile.
-                            <span>Aggiungi almeno una spesa per visualizzare il grafico.</span>
+                            <span>Non ci sono spese nel periodo selezionato.</span>
                         </div>
                     ) : (
                         <div className="category-chart-layout compact-category-layout">
@@ -313,8 +395,8 @@ function DashboardPage() {
             <div className="dashboard-main-grid">
                 <div className="dashboard-card large-card">
                     <div className="card-header">
-                        <h3>Trend ultimi 6 mesi</h3>
-                        <span>Entrate, uscite e netto per mese</span>
+                        <h3>Trend periodo</h3>
+                        <span>Aggiornato in base al filtro selezionato</span>
                     </div>
 
                     {monthlyTrend.length === 0 ? (
@@ -343,7 +425,7 @@ function DashboardPage() {
                 <div className="dashboard-card form-card">
                     <div className="card-header">
                         <h3>Top spese</h3>
-                        <span>Movimenti negativi più pesanti</span>
+                        <span>Solo nel periodo selezionato</span>
                     </div>
 
                     {topExpenses.length === 0 ? (
@@ -375,7 +457,7 @@ function DashboardPage() {
 
             <div className="dashboard-card transactions-card">
                 <div className="card-header">
-                    <h3>Tutte le transazioni</h3>
+                    <h3>Tutte le transazioni del periodo</h3>
                     <span>Le transazioni cash possono essere modificate o eliminate</span>
                 </div>
 

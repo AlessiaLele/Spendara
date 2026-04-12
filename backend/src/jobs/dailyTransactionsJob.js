@@ -1,34 +1,48 @@
 const cron = require('node-cron');
-const { v4: uuidv4 } = require('uuid');
+const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+const { generateMissingDailyTransactions } = require('../services/transactionService');
 
-let userTransactions = [];
+async function runDailyTransactionsJob() {
+    console.log("Running daily transaction job...");
 
-// Generatore base
-function generateTransaction() {
-    return {
-        id: uuidv4(),
-        amount: (Math.random() * -100).toFixed(2),
-        currency: "EUR",
-        description: "Daily Auto Transaction",
-        date: new Date().toISOString()
-    };
+    const users = await User.find();
+
+    for (const user of users) {
+        try {
+            const today = new Date();
+
+            const newTransactions = generateMissingDailyTransactions(
+                user._id,
+                user.lastSimulatedBatchDate,
+                'demo-account'
+            );
+
+            if (newTransactions.length > 0) {
+                await Transaction.insertMany(newTransactions);
+
+                await User.updateOne(
+                    { _id: user._id },
+                    { lastSimulatedBatchDate: today }
+                );
+
+                console.log(`Added ${newTransactions.length} transactions for user ${user._id}`);
+            }
+
+        } catch (err) {
+            console.error(`Error processing user ${user._id}`, err);
+        }
+    }
+
+    console.log("Daily transaction job completed");
 }
 
-// Job: eseguito ogni giorno alle 00:00
 function startDailyTransactionsJob() {
     cron.schedule('0 0 * * *', () => {
-        console.log("Running daily transaction job...");
-
-        const newTransactions = [
-            generateTransaction(),
-            generateTransaction()
-        ];
-
-        // aggiunge esattamente 2
-        userTransactions = [...newTransactions, ...userTransactions];
-
-        console.log("Added 2 new daily transactions");
+        runDailyTransactionsJob();
     });
+
+    runDailyTransactionsJob();
 }
 
-module.exports = startDailyTransactionsJob;
+module.exports = { startDailyTransactionsJob };

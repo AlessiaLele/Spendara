@@ -942,6 +942,98 @@ tbody tr:hover {
     align-self: stretch;
 }
 
+.hero-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+}
+
+.period-dropdown-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 210px;
+}
+
+.period-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.period-select {
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+}
+
+.period-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.period-select option {
+    color: #111827;
+    background: #ffffff;
+}
+
+.hero-actions {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+}
+
+.period-dropdown-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 210px;
+}
+
+.period-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.period-select {
+    min-height: 48px;
+    padding: 0 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+}
+
+.period-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.period-select option {
+    color: #111827;
+    background: #ffffff;
+}
+
+.forecast-card {
+    margin-top: 24px;
+}
+
 @media (max-width: 900px) {
     .dashboard-main-grid-70-30 {
         grid-template-columns: 1fr;
