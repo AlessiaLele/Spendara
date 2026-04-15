@@ -50,7 +50,7 @@ function DashboardPage() {
             const dashboardResponse = await getDashboardData(token, period);
 
             setDashboardData(dashboardResponse);
-            setAllTransactions(dashboardResponse.allTransactions || []);
+            setAllTransactions(dashboardResponse.periodTransactions || []);
         } catch (err) {
             console.error('ERRORE DASHBOARD:', err);
             setError(err.message || 'Errore nel caricamento della dashboard');
@@ -82,6 +82,18 @@ function DashboardPage() {
                 return 'annuale';
             default:
                 return 'mensile';
+        }
+    };
+
+    const getConfidenceLabel = (confidence) => {
+        switch (confidence) {
+            case 'alta':
+                return 'Alta';
+            case 'media':
+                return 'Media';
+            case 'bassa':
+            default:
+                return 'Bassa';
         }
     };
 
@@ -140,26 +152,47 @@ function DashboardPage() {
     };
 
     const categories = dashboardData?.categories || [];
-    const monthlyTrend = dashboardData?.monthlyTrend || [];
+    const trend = dashboardData?.trend || [];
     const topExpenses = dashboardData?.topExpenses || [];
 
     const forecast = {
+        model: dashboardData?.forecast?.model ?? 'seasonal_weekday_trend_v2',
         currentBalance: dashboardData?.forecast?.currentBalance ?? 0,
         remainingRecurringIncome: dashboardData?.forecast?.remainingRecurringIncome ?? 0,
         remainingRecurringExpenses: dashboardData?.forecast?.remainingRecurringExpenses ?? 0,
-        averageDailyVariableExpenses: dashboardData?.forecast?.averageDailyVariableExpenses ?? 0,
-        projectedVariableExpenses: dashboardData?.forecast?.projectedVariableExpenses ?? 0,
+        averageDailyVariableExpenses:
+            dashboardData?.forecast?.averageDailyVariableExpenses ?? 0,
+        projectedVariableExpenses:
+            dashboardData?.forecast?.projectedVariableExpenses ?? 0,
         predictedEndBalance: dashboardData?.forecast?.predictedEndBalance ?? 0,
         daysRemaining: dashboardData?.forecast?.daysRemaining ?? 0,
         activeExpenseDays: dashboardData?.forecast?.activeExpenseDays ?? 0,
         confidence: dashboardData?.forecast?.confidence ?? 'bassa',
         recurringSummary: {
-            detectedSeries: dashboardData?.forecast?.recurringSummary?.detectedSeries ?? 0,
-            futureIncomeItems: dashboardData?.forecast?.recurringSummary?.futureIncomeItems ?? 0,
-            futureExpenseItems: dashboardData?.forecast?.recurringSummary?.futureExpenseItems ?? 0
+            detectedSeries:
+                dashboardData?.forecast?.recurringSummary?.detectedSeries ?? 0,
+            futureIncomeItems:
+                dashboardData?.forecast?.recurringSummary?.futureIncomeItems ?? 0,
+            futureExpenseItems:
+                dashboardData?.forecast?.recurringSummary?.futureExpenseItems ?? 0
         },
         recurringIncomeItems: dashboardData?.forecast?.recurringIncomeItems ?? [],
-        recurringExpenseItems: dashboardData?.forecast?.recurringExpenseItems ?? []
+        recurringExpenseItems: dashboardData?.forecast?.recurringExpenseItems ?? [],
+        categoryForecast: dashboardData?.forecast?.categoryForecast ?? [],
+        validation: {
+            evaluatedMonths: dashboardData?.forecast?.validation?.evaluatedMonths ?? 0,
+            mae: dashboardData?.forecast?.validation?.mae ?? 0,
+            mape: dashboardData?.forecast?.validation?.mape ?? 0,
+            samples: dashboardData?.forecast?.validation?.samples ?? []
+        },
+        variableModel: {
+            historyDays: dashboardData?.forecast?.variableModel?.historyDays ?? 0,
+            historyWindowDays:
+                dashboardData?.forecast?.variableModel?.historyWindowDays ?? 0,
+            trendFactor: dashboardData?.forecast?.variableModel?.trendFactor ?? 1,
+            weekdayProfiles:
+                dashboardData?.forecast?.variableModel?.weekdayProfiles ?? {}
+        }
     };
 
     const pieData = categories.map((category) => ({
@@ -222,12 +255,12 @@ function DashboardPage() {
 
             <div className="stats-grid">
                 <div className="stat-card">
-                    <p className="stat-label">Previsione mese</p>
+                    <p className="stat-label">Previsione fine mese</p>
                     <h2>{formatAmount(forecast.predictedEndBalance)}</h2>
                     <p className="stat-caption">
-                        Media uscite: {formatAmount(forecast.averageDailyExpenses)}/giorno ·
+                        Media uscite variabili: {formatAmount(forecast.averageDailyVariableExpenses)}/giorno ·
                         Mancano {forecast.daysRemaining} giorni ·
-                        Affidabilità {forecast.confidence}
+                        Affidabilità {getConfidenceLabel(forecast.confidence)}
                     </p>
                 </div>
 
@@ -244,7 +277,7 @@ function DashboardPage() {
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Saldo</p>
+                    <p className="stat-label">Saldo periodo</p>
                     <h2>{formatAmount(summary.balance)}</h2>
                     <p className="stat-caption">Entrate meno uscite nel periodo</p>
                 </div>
@@ -252,8 +285,8 @@ function DashboardPage() {
 
             <div className="dashboard-card forecast-card">
                 <div className="card-header">
-                    <h3>Come viene calcolata la previsione</h3>
-                    <span>Seconda versione del motore previsionale</span>
+                    <h3>Motore previsionale</h3>
+                    <span>{forecast.model}</span>
                 </div>
 
                 <div className="category-list">
@@ -270,7 +303,7 @@ function DashboardPage() {
                             <span>{formatAmount(forecast.remainingRecurringIncome)}</span>
                         </div>
                         <div className="progress-meta">
-                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureIncomeItems  ?? 0}</span>
+                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureIncomeItems}</span>
                         </div>
                     </div>
 
@@ -280,7 +313,7 @@ function DashboardPage() {
                             <span>{formatAmount(forecast.remainingRecurringExpenses)}</span>
                         </div>
                         <div className="progress-meta">
-                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureExpenseItems ?? 0}</span>
+                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureExpenseItems}</span>
                         </div>
                     </div>
 
@@ -289,12 +322,20 @@ function DashboardPage() {
                             <span>Media uscite variabili giornaliere</span>
                             <span>{formatAmount(forecast.averageDailyVariableExpenses)}</span>
                         </div>
+                        <div className="progress-meta">
+                            <span>Giorni con uscite nello storico: {forecast.activeExpenseDays}</span>
+                            <span>Trend: {forecast.variableModel.trendFactor}x</span>
+                        </div>
                     </div>
 
                     <div className="category-item">
                         <div className="category-top">
                             <span>Uscite variabili stimate rimanenti</span>
                             <span>{formatAmount(forecast.projectedVariableExpenses)}</span>
+                        </div>
+                        <div className="progress-meta">
+                            <span>Finestra storica: {forecast.variableModel.historyWindowDays} giorni</span>
+                            <span>Orizzonte previsione: {forecast.daysRemaining} giorni</span>
                         </div>
                     </div>
 
@@ -304,12 +345,115 @@ function DashboardPage() {
                             <span>{formatAmount(forecast.predictedEndBalance)}</span>
                         </div>
                         <div className="progress-meta">
-                            <span>Giorni rimanenti: {forecast.daysRemaining}</span>
-                            <span>Affidabilità: {forecast.confidence}</span>
+                            <span>Affidabilità: {getConfidenceLabel(forecast.confidence)}</span>
+                            <span>Serie ricorrenti rilevate: {forecast.recurringSummary.detectedSeries}</span>
                         </div>
                     </div>
                 </div>
+            </div>
 
+            <div className="dashboard-main-grid">
+                <div className="dashboard-card large-card">
+                    <div className="card-header">
+                        <h3>Validazione del modello</h3>
+                        <span>Backtest sui mesi completi precedenti</span>
+                    </div>
+
+                    <div className="category-list">
+                        <div className="category-item">
+                            <div className="category-top">
+                                <span>Mesi valutati</span>
+                                <span>{forecast.validation.evaluatedMonths}</span>
+                            </div>
+                        </div>
+
+                        <div className="category-item">
+                            <div className="category-top">
+                                <span>MAE</span>
+                                <span>{formatAmount(forecast.validation.mae)}</span>
+                            </div>
+                            <div className="progress-meta">
+                                <span>Errore medio assoluto sulle spese residue previste</span>
+                            </div>
+                        </div>
+
+                        <div className="category-item">
+                            <div className="category-top">
+                                <span>MAPE</span>
+                                <span>{forecast.validation.mape.toFixed(2)}%</span>
+                            </div>
+                            <div className="progress-meta">
+                                <span>Errore percentuale medio sulle spese residue previste</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {forecast.validation.samples.length > 0 && (
+                        <div className="category-list" style={{ marginTop: '16px' }}>
+                            {forecast.validation.samples.map((sample) => (
+                                <div key={sample.month} className="category-item">
+                                    <div className="category-top">
+                                        <span>{sample.month}</span>
+                                        <span>
+                                            Previsto {formatAmount(sample.predictedRemainingExpenses)}
+                                        </span>
+                                    </div>
+                                    <div className="progress-meta">
+                                        <span>
+                                            Reale {formatAmount(sample.actualRemainingExpenses)}
+                                        </span>
+                                        <span>
+                                            Saldo finale reale {formatAmount(sample.actualEndBalance)}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="dashboard-card form-card">
+                    <div className="card-header">
+                        <h3>Previsione per categoria</h3>
+                        <span>Ripartizione delle uscite variabili attese</span>
+                    </div>
+
+                    {forecast.categoryForecast.length === 0 ? (
+                        <div className="empty-state">
+                            Nessuna previsione per categoria disponibile.
+                            <span>Servono più dati storici sulle uscite variabili.</span>
+                        </div>
+                    ) : (
+                        <div className="category-list">
+                            {forecast.categoryForecast.map((item) => (
+                                <div key={item.category} className="category-item">
+                                    <div className="category-top">
+                                        <span>{item.category}</span>
+                                        <span>{formatAmount(item.projectedExpense)}</span>
+                                    </div>
+
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{
+                                                width: `${Math.min(item.historicalShare * 100, 100)}%`
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="progress-meta">
+                                        <span>
+                                            Peso storico: {(item.historicalShare * 100).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="dashboard-card forecast-card">
                 <div className="forecast-recurring-grid">
                     <div className="forecast-recurring-column">
                         <div className="card-header">
@@ -335,9 +479,9 @@ function DashboardPage() {
                                         <div className="progress-meta">
                                             <span>{item.category}</span>
                                             <span>
-                                    Prevista il{' '}
+                                                Prevista il{' '}
                                                 {new Date(item.predictedDate).toLocaleDateString('it-IT')}
-                                </span>
+                                            </span>
                                         </div>
                                     </div>
                                 ))}
@@ -369,9 +513,9 @@ function DashboardPage() {
                                         <div className="progress-meta">
                                             <span>{item.category}</span>
                                             <span>
-                                    Prevista il{' '}
+                                                Prevista il{' '}
                                                 {new Date(item.predictedDate).toLocaleDateString('it-IT')}
-                                </span>
+                                            </span>
                                         </div>
                                     </div>
                                 ))}
@@ -498,16 +642,16 @@ function DashboardPage() {
                         <span>Aggiornato in base al filtro selezionato</span>
                     </div>
 
-                    {monthlyTrend.length === 0 ? (
+                    {trend.length === 0 ? (
                         <div className="empty-state">
                             Nessun trend disponibile.
                         </div>
                     ) : (
                         <div className="category-list">
-                            {monthlyTrend.map((item) => (
-                                <div key={item.month} className="category-item">
+                            {trend.map((item, index) => (
+                                <div key={`${item.label}-${index}`} className="category-item">
                                     <div className="category-top">
-                                        <span>{item.month}</span>
+                                        <span>{item.label}</span>
                                         <span>{formatAmount(item.net)}</span>
                                     </div>
 
