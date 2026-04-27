@@ -10,8 +10,6 @@ const tinkRoutes = require('./src/routes/tinkRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const { startDailyTransactionsJob } = require('./src/jobs/dailyTransactionsJob');
-console.log("Avvio job transazioni automatiche...");
-startDailyTransactionsJob();
 
 const app = express();
 

@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { generateMissingDailyTransactions } = require('../services/transactionService');
+const { generateMissingDailyTransactions,
+        generateThreeDailyTransactions } = require('../services/transactionService');
 
 // helper per evitare problemi di timezone
 function normalize(date) {
@@ -11,7 +12,7 @@ function normalize(date) {
 }
 
 async function runDailyTransactionsJob() {
-    console.log("Running daily transaction job...");
+    console.log("Running daily transaction job...", new Date());
 
     const users = await User.find();
 
@@ -23,83 +24,70 @@ async function runDailyTransactionsJob() {
                 ? normalize(user.lastSimulatedBatchDate)
                 : null;
 
-            // ✅ Caso primo avvio: nessuna data → genera solo oggi
-            if (!lastDate) {
-                console.log(`First run for user ${user._id}`);
+            // ====== GENERAZIONE TRANSAZIONI ======
 
-                const newTransactions = generateMissingDailyTransactions(
+            if (!lastDate) {
+                const newTransactions = generateThreeDailyTransactions(
                     user._id,
-                    user.lastSimulatedBatchDate,
                     today,
                     'demo-account'
                 );
 
-// 🔥 definisci inizio/fine giornata
-                const todayStart = new Date(today);
-                todayStart.setHours(0, 0, 0, 0);
-
-                const todayEnd = new Date(today);
-                todayEnd.setHours(23, 59, 59, 999);
-
-// 🔍 controlla se stipendio esiste già
-                const existingSalary = await Transaction.findOne({
-                    userId: user._id,
-                    category: 'salary',
-                    date: {
-                        $gte: todayStart,
-                        $lte: todayEnd
-                    }
-                });
-
-// 🔥 FILTRA le transazioni da inserire
-                const filteredTransactions = newTransactions.filter(tx => {
-                    if (tx.category === 'salary' && existingSalary) {
-                        return false; // ❌ blocca duplicato
-                    }
-                    return true;
-                });
-
-                if (filteredTransactions.length > 0) {
-                    await Transaction.insertMany(filteredTransactions);
-
-                    await User.updateOne(
-                        { _id: user._id },
-                        { lastSimulatedBatchDate: today }
-                    );
-
-                    console.log(`Added ${filteredTransactions.length} transactions for user ${user._id}`);
+                if (newTransactions.length > 0) {
+                    await Transaction.insertMany(newTransactions);
                 }
 
                 await User.updateOne(
                     { _id: user._id },
                     { lastSimulatedBatchDate: today }
                 );
+            } else if (lastDate < today) {
 
-                continue;
-            }
+                const newTransactions = generateMissingDailyTransactions(
+                    user._id,
+                    lastDate,
+                    today,
+                    'demo-account'
+                );
 
-            // ✅ Se già aggiornato oggi → skip
-            if (lastDate >= today) {
-                continue;
-            }
-
-            // ✅ GENERA GIORNI MANCANTI
-            const newTransactions = generateMissingDailyTransactions(
-                user._id,
-                lastDate,
-                today,
-                'demo-account'
-            );
-
-            if (newTransactions.length > 0) {
-                await Transaction.insertMany(newTransactions);
+                if (newTransactions.length > 0) {
+                    await Transaction.insertMany(newTransactions);
+                }
 
                 await User.updateOne(
                     { _id: user._id },
                     { lastSimulatedBatchDate: today }
                 );
+            }
 
-                console.log(`Added ${newTransactions.length} transactions for user ${user._id}`);
+            // ====== 🎯 STIPENDIO QUI (CORRETTO) ======
+
+            if (today.getDate() === 27 || today.getDate() === 28) {
+
+                const salaryId = `salary-${user._id}-${today.toISOString().slice(0, 10)}`;
+
+                const existingSalary = await Transaction.findOne({
+                    externalTransactionId: salaryId
+                });
+
+                if (!existingSalary) {
+                    const salaryDate = new Date(today);
+                    salaryDate.setHours(9, 0, 0, 0);
+
+                    await Transaction.create({
+                        userId: user._id,
+                        accountId: 'demo-account',
+                        amount: 1650,
+                        currencyCode: 'EUR',
+                        description: 'Stipendio Azienda',
+                        date: salaryDate,
+                        category: 'salary',
+                        source: 'bank',
+                        externalTransactionId: salaryId
+                    });
+
+                    console.log(`Salary added for user ${user._id}`);
+                }
             }
 
         } catch (err) {
@@ -115,6 +103,7 @@ function startDailyTransactionsJob() {
         runDailyTransactionsJob();
     });
 
+    // run immediato all'avvio
     runDailyTransactionsJob();
 }
 

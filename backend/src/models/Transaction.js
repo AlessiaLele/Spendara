@@ -14,4 +14,9 @@ const transactionSchema = new mongoose.Schema({
     { timestamps: true }
 );
 
+transactionSchema.index(
+    { userId: 1, externalTransactionId: 1 },
+    { unique: true }
+);
+
 module.exports = mongoose.model('Transaction', transactionSchema);

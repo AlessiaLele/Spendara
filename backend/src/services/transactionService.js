@@ -70,23 +70,6 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
 
             transactions.push(generateTransaction(userId, txDate, accountId));
         }
-
-        if (currentDate.getDate() === 27 || currentDate.getDate() === 28) {
-            const salaryDate = new Date(currentDate);
-            salaryDate.setHours(9, 0, 0, 0);
-
-            transactions.push({
-                userId,
-                accountId,
-                amount: 1650,
-                currencyCode: 'EUR',
-                description: 'Stipendio Azienda',
-                date: salaryDate,
-                category: 'salary',
-                source: 'bank',
-                externalTransactionId: `bank-salary-${userId}-${salaryDate.getTime()}`
-            });
-        }
     }
 
     return transactions;
@@ -110,14 +93,6 @@ function generateThreeDailyTransactions(userId, date, accountId = 'demo-account'
     return transactions;
 }
 
-function getRandomAmount(min, max) {
-    return +(Math.random() * (max - min) + min).toFixed(2);
-}
-
-function getRandomItem(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function generateMissingDailyTransactions(userId, startDate, endDate, accountId) {
     const transactions = [];
 
@@ -138,24 +113,6 @@ function generateMissingDailyTransactions(userId, startDate, endDate, accountId)
             const tx = generateTransaction(userId, txDate, accountId);
 
             transactions.push(tx);
-        }
-
-        // stipendio
-        if (baseDate.getDate() === 27 || baseDate.getDate() === 28) {
-            const salaryDate = new Date(baseDate);
-            salaryDate.setHours(9, 0, 0, 0);
-
-            transactions.push({
-                userId,
-                accountId,
-                amount: 1650,
-                currencyCode: 'EUR',
-                description: 'Stipendio Azienda',
-                date: salaryDate,
-                category: 'salary',
-                source: 'bank',
-                externalTransactionId: `sim-salary-${userId}-${salaryDate.getTime()}`
-            });
         }
 
         current.setDate(current.getDate() + 1);
