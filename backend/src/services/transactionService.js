@@ -14,19 +14,19 @@ function randomFrom(arr) {
 
 function randomAmount(category) {
     switch (category) {
-        case 'groceries':
+        case 'spesa':
             return Number((-(10 + Math.random() * 70)).toFixed(2));
-        case 'food':
+        case 'ristoranti':
             return Number((-(5 + Math.random() * 30)).toFixed(2));
-        case 'transport':
+        case 'trasporti':
             return Number((-(8 + Math.random() * 60)).toFixed(2));
         case 'shopping':
             return Number((-(15 + Math.random() * 150)).toFixed(2));
-        case 'bills':
+        case 'bollette':
             return Number((-(20 + Math.random() * 120)).toFixed(2));
-        case 'entertainment':
+        case 'intrattenimento':
             return Number((-(8 + Math.random() * 40)).toFixed(2));
-        case 'salary':
+        case 'stipendio':
             return Number((1200 + Math.random() * 1200).toFixed(2));
         default:
             return Number((-(5 + Math.random() * 50)).toFixed(2));
@@ -34,15 +34,17 @@ function randomAmount(category) {
 }
 
 function generateTransaction(userId, date, accountId = 'demo-account') {
-    const categories = ['alimentari', 'ristoranti', 'trasporti', 'shopping', 'intrattenimento', 'bollette'];
+    const categories = ['spesa', 'ristoranti', 'trasporti', 'shopping', 'intrattenimento', 'bollette'];
     const category = randomFrom(categories);
+
+    const merchants = merchantsByCategory[category] || ['Generic Store']; // ✅ fallback
 
     return {
         userId,
         accountId,
         amount: randomAmount(category),
         currencyCode: 'EUR',
-        description: randomFrom(merchantsByCategory[category]),
+        description: randomFrom(merchants),
         date,
         category,
         source: 'bank',
@@ -105,46 +107,58 @@ function generateThreeDailyTransactions(userId, date, accountId = 'demo-account'
         transactions.push(generateTransaction(userId, txDate, accountId));
     }
 
-    // stipendio il 27 o 28 del mese
-    if (baseDate.getDate() === 27 || baseDate.getDate() === 28) {
-        const salaryDate = new Date(baseDate);
-        salaryDate.setHours(9, 0, 0, 0);
-
-        transactions.push({
-            userId,
-            accountId,
-            amount: 1650,
-            currencyCode: 'EUR',
-            description: 'Stipendio Azienda',
-            date: salaryDate,
-            category: 'salary',
-            source: 'bank',
-            externalTransactionId: `sim-salary-${userId}-${salaryDate.getTime()}`
-        });
-    }
-
     return transactions;
 }
 
-function generateMissingDailyTransactions(userId, lastSimulatedBatchDate, accountId = 'demo-account') {
+function getRandomAmount(min, max) {
+    return +(Math.random() * (max - min) + min).toFixed(2);
+}
+
+function getRandomItem(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateMissingDailyTransactions(userId, startDate, endDate, accountId) {
     const transactions = [];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    let current = new Date(startDate);
+    current.setDate(current.getDate() + 1);
 
-    let startDate;
+    while (current <= endDate) {
 
-    if (!lastSimulatedBatchDate) {
-        startDate = new Date(today);
-    } else {
-        startDate = new Date(lastSimulatedBatchDate);
-        startDate.setHours(0, 0, 0, 0);
-        startDate.setDate(startDate.getDate() + 1);
-    }
+        const baseDate = new Date(current);
+        baseDate.setHours(0, 0, 0, 0);
 
-    while (startDate <= today) {
-        transactions.push(...generateThreeDailyTransactions(userId, startDate, accountId));
-        startDate.setDate(startDate.getDate() + 1);
+        for (let i = 0; i < 3; i++) {
+            const txDate = new Date(baseDate);
+            txDate.setHours(8 + Math.floor(Math.random() * 12));
+            txDate.setMinutes(Math.floor(Math.random() * 60));
+            txDate.setSeconds(Math.floor(Math.random() * 60));
+
+            const tx = generateTransaction(userId, txDate, accountId);
+
+            transactions.push(tx);
+        }
+
+        // stipendio
+        if (baseDate.getDate() === 27 || baseDate.getDate() === 28) {
+            const salaryDate = new Date(baseDate);
+            salaryDate.setHours(9, 0, 0, 0);
+
+            transactions.push({
+                userId,
+                accountId,
+                amount: 1650,
+                currencyCode: 'EUR',
+                description: 'Stipendio Azienda',
+                date: salaryDate,
+                category: 'salary',
+                source: 'bank',
+                externalTransactionId: `sim-salary-${userId}-${salaryDate.getTime()}`
+            });
+        }
+
+        current.setDate(current.getDate() + 1);
     }
 
     return transactions;
