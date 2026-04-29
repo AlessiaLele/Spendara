@@ -13,14 +13,14 @@ async function addCashTransaction(req, res) {
         }
 
         const normalizedTransaction = normalizeTransactionInput({
-            amount,
-            category: normalizeCategory(category),
+            amount: -Math.abs(amount),
+            category,
             description,
             date,
             currencyCode: 'EUR',
             source: 'cash',
-            externalTransactionId: '',
-            accountId: ''
+            externalTransactionId: null,
+            accountId: null
         });
 
         const transaction = await Transaction.create({
@@ -147,21 +147,17 @@ async function deleteTransaction(req, res) {
         const userId = req.user._id;
         const { id } = req.params;
 
-        const transaction = await Transaction.findOne({ _id: id, userId });
+        const deleted = await Transaction.findOneAndDelete({
+            _id: id,
+            userId,
+            source: 'cash'
+        });
 
-        if (!transaction) {
+        if (!deleted) {
             return res.status(404).json({
-                message: 'Transazione non trovata'
+                message: 'Transazione non trovata o non eliminabile'
             });
         }
-
-        if (transaction.source !== 'cash') {
-            return res.status(400).json({
-                message: 'Puoi eliminare solo le transazioni inserite manualmente'
-            });
-        }
-
-        await Transaction.findByIdAndDelete(id);
 
         return res.status(200).json({
             message: 'Transazione eliminata con successo'

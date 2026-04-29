@@ -11,6 +11,7 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const { startDailyTransactionsJob } = require('./src/jobs/dailyTransactionsJob');
 
+
 const app = express();
 
 app.use(cors());

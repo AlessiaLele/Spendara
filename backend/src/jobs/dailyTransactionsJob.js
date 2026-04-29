@@ -60,14 +60,13 @@ async function runDailyTransactionsJob() {
                 );
             }
 
-            // ====== 🎯 STIPENDIO QUI (CORRETTO) ======
-
-            if (today.getDate() === 27 || today.getDate() === 28) {
+           //Stipedio
+            if (today.getDate() === 10 || today.getDate() === 11) {
 
                 const salaryId = `salary-${user._id}-${today.toISOString().slice(0, 10)}`;
 
                 const existingSalary = await Transaction.findOne({
-                    externalTransactionId: salaryId
+                    externalTransactionId: `daily-${userId}-${date.toISOString().slice(0,10)}-${i}`
                 });
 
                 if (!existingSalary) {

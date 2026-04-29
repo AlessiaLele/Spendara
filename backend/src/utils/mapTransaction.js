@@ -1,15 +1,7 @@
+const { normalizeCategory } = require('./normalizeCategory');
+
 function normalizeText(value = '') {
     return String(value).trim().replace(/\s+/g, ' ');
-}
-
-function normalizeCategory(category = '') {
-    const normalized = normalizeText(category);
-
-    if (!normalized) {
-        return 'Uncategorized';
-    }
-
-    return normalized;
 }
 
 function normalizeAmount(amount) {
@@ -34,8 +26,8 @@ function normalizeDate(date) {
 
 function normalizeTransactionInput(input = {}) {
     return {
-        externalTransactionId: normalizeText(input.externalTransactionId || ''),
-        accountId: normalizeText(input.accountId || ''),
+        externalTransactionId: normalizeText(input.externalTransactionId || '') || null,
+        accountId: normalizeText(input.accountId || '') || null,
         amount: normalizeAmount(input.amount),
         currencyCode: normalizeText(input.currencyCode || 'EUR').toUpperCase(),
         description: normalizeText(input.description || ''),

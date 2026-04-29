@@ -1,5 +1,6 @@
 const BankConnection = require('../models/BankConnection');
 const Transaction = require('../models/Transaction');
+
 const {
     getTinkConnectUrl,
     exchangeCodeForToken,
@@ -7,10 +8,21 @@ const {
     getTransactions
 } = require('../services/tinkService');
 
+const {
+    PURPOSE,
+    createTinkState,
+    verifyTinkState
+} = require('../utils/stateToken');
+
+
+/**
+ * Genera URL per collegamento banca
+ */
 async function startConnect(req, res) {
     try {
         const userId = req.user._id.toString();
-        const state = `user_${userId}_${Date.now()}`;
+
+        const state = createTinkState(userId);
 
         const connectUrl = await getTinkConnectUrl(state);
 
@@ -26,30 +38,70 @@ async function startConnect(req, res) {
     }
 }
 
+
+/**
+ * Import transazioni (riutilizzabile)
+ */
+async function importTransactions(userId, transactions, accounts) {
+    const existing = await Transaction.find({
+        userId,
+        externalTransactionId: { $in: transactions.map(t => t.id) }
+    }).select('externalTransactionId');
+
+    const existingIds = new Set(existing.map(t => t.externalTransactionId));
+
+    const newTransactions = transactions
+        .filter(tx => !existingIds.has(tx.id))
+        .map(tx => ({
+            userId,
+            externalTransactionId: tx.id,
+            accountId: tx.accountId || accounts[0]?.id || 'demo-account',
+            amount: tx.amount,
+            currencyCode: tx.currencyCode || 'EUR',
+            description: tx.description || '',
+            date: tx.date ? new Date(tx.date) : new Date(),
+            category: tx.category || 'Uncategorized',
+            source: 'bank'
+        }));
+
+    if (newTransactions.length > 0) {
+        await Transaction.insertMany(newTransactions);
+    }
+
+    return newTransactions.length;
+}
+
+
+/**
+ * Callback OAuth Tink
+ */
 async function handleCallback(req, res) {
     try {
         const { code, state } = req.query;
 
-        if (!code) {
+        if (!code || !state) {
             return res.status(400).json({
-                message: 'Code mancante nella callback'
+                message: 'Code o state mancanti'
             });
         }
 
-        if (!state) {
+        let payload;
+
+        try {
+            payload = verifyTinkState(state);
+        } catch (err) {
             return res.status(400).json({
-                message: 'State mancante nella callback'
+                message: 'State non valido o scaduto'
             });
         }
 
-        const stateParts = state.split('_');
-        const userId = stateParts[1];
-
-        if (!userId) {
+        if (payload.purpose !== PURPOSE) {
             return res.status(400).json({
                 message: 'State non valido'
             });
         }
+
+        const userId = payload.userId;
 
         const tokenData = await exchangeCodeForToken(code);
 
@@ -76,37 +128,14 @@ async function handleCallback(req, res) {
         const accounts = await getAccounts(tokenData.accessToken);
         const transactions = await getTransactions(tokenData.accessToken);
 
-        let importedCount = 0;
-
-        for (const tx of transactions) {
-            const existingTransaction = await Transaction.findOne({
-                userId,
-                externalTransactionId: tx.id
-            });
-
-            if (!existingTransaction) {
-                await Transaction.create({
-                    userId,
-                    externalTransactionId: tx.id,
-                    accountId: tx.accountId || accounts[0]?.id || 'demo-account',
-                    amount: tx.amount,
-                    currencyCode: tx.currencyCode || 'EUR',
-                    description: tx.description || '',
-                    date: tx.date ? new Date(tx.date) : new Date(),
-                    category: tx.category || 'Uncategorized',
-                    source: 'bank'
-                });
-
-                importedCount++;
-            }
-        }
+        const importedCount = await importTransactions(userId, transactions, accounts);
 
         return res.status(200).json({
             message: 'Collegamento banca completato con successo',
-            bankConnection,
             accountsCount: accounts.length,
             importedTransactions: importedCount
         });
+
     } catch (error) {
         console.error('Errore handleCallback:', error);
         return res.status(500).json({
@@ -115,6 +144,10 @@ async function handleCallback(req, res) {
     }
 }
 
+
+/**
+ * Stato connessione banca
+ */
 async function getBankConnectionStatus(req, res) {
     try {
         const userId = req.user._id;
@@ -144,6 +177,10 @@ async function getBankConnectionStatus(req, res) {
     }
 }
 
+
+/**
+ * Transazioni banca
+ */
 async function getBankTransactions(req, res) {
     try {
         const userId = req.user._id;
@@ -162,6 +199,10 @@ async function getBankTransactions(req, res) {
     }
 }
 
+
+/**
+ * Sync manuale
+ */
 async function syncBankTransactions(req, res) {
     try {
         const userId = req.user._id;
@@ -172,7 +213,7 @@ async function syncBankTransactions(req, res) {
             status: 'connected'
         });
 
-        if (!bankConnection || !bankConnection.accessToken) {
+        if (!bankConnection?.accessToken) {
             return res.status(400).json({
                 message: 'Nessun conto bancario collegato'
             });
@@ -181,36 +222,14 @@ async function syncBankTransactions(req, res) {
         const accounts = await getAccounts(bankConnection.accessToken);
         const transactions = await getTransactions(bankConnection.accessToken);
 
-        let importedCount = 0;
-
-        for (const tx of transactions) {
-            const existingTransaction = await Transaction.findOne({
-                userId,
-                externalTransactionId: tx.id
-            });
-
-            if (!existingTransaction) {
-                await Transaction.create({
-                    userId,
-                    externalTransactionId: tx.id,
-                    accountId: tx.accountId || accounts[0]?.id || 'demo-account',
-                    amount: tx.amount,
-                    currencyCode: tx.currencyCode || 'EUR',
-                    description: tx.description || '',
-                    date: tx.date ? new Date(tx.date) : new Date(),
-                    category: tx.category || 'Uncategorized',
-                    source: 'bank'
-                });
-
-                importedCount++;
-            }
-        }
+        const importedCount = await importTransactions(userId, transactions, accounts);
 
         return res.status(200).json({
             message: 'Sincronizzazione completata con successo',
             importedTransactions: importedCount,
             totalFetched: transactions.length
         });
+
     } catch (error) {
         console.error('Errore syncBankTransactions:', error);
         return res.status(500).json({
@@ -218,6 +237,7 @@ async function syncBankTransactions(req, res) {
         });
     }
 }
+
 
 module.exports = {
     startConnect,
