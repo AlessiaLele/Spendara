@@ -1,4 +1,6 @@
 const { normalizeCategory } = require('../utils/normalizeCategory');
+const Budget = require("../models/budget").default;
+const { evaluateMonthlyBudget, evaluateCategoryBudgets } = require("./budgetService");
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -118,7 +120,6 @@ function getRecurringGroupKey(transaction) {
  * - almeno 3 occorrenze
  * - intervallo medio tra 25 e 35 giorni
  * - variazione importi contenuta
- * - descrizione normalizzata non troppo corta
  */
 function detectRecurringTransactions(allTransactions, now, monthEnd) {
     const candidates = allTransactions.filter((transaction) => {
@@ -128,7 +129,6 @@ function detectRecurringTransactions(allTransactions, now, monthEnd) {
 
         return (
             ageInDays <= 180 &&
-            transaction.description &&
             normalizedDescription.length >= 4
         );
     });
@@ -618,7 +618,7 @@ function calculateBacktestMetrics(allTransactions) {
     };
 }
 
-function buildMonthlyForecast(allTransactions) {
+async function buildMonthlyForecast(allTransactions, userId) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -696,6 +696,51 @@ function buildMonthlyForecast(allTransactions) {
         variableForecast.projectedVariableExpenses
     ).toFixed(2));
 
+    const nowMonth = now.getMonth();
+    const nowYear = now.getFullYear();
+
+    const budgetDoc = await Budget.findOne({
+        userId: userId,
+        month: nowMonth,
+        year: nowYear,
+    });
+
+    let budgetAnalysis = null;
+
+    let categoryBudgetAnalysis = [];
+
+    if (budgetDoc && budgetDoc.categoryBudgets?.length) {
+        categoryBudgetAnalysis = evaluateCategoryBudgets(
+            categoryForecast,
+            budgetDoc.categoryBudgets
+        );
+    }
+
+    if (budgetDoc) {
+        const daysElapsed = Math.ceil(
+            (now - monthStart) / (1000 * 60 * 60 * 24)
+        );
+
+        const daysInMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() + 1,
+            0
+        ).getDate();
+
+        const totalProjectedExpenses =
+            currentExpenses +
+            remainingRecurringExpenses +
+            variableForecast.projectedVariableExpenses;
+
+        budgetAnalysis = evaluateMonthlyBudget({
+            budget: budgetDoc.totalBudget,
+            currentExpenses,
+            daysElapsed,
+            daysInMonth,
+            projectedTotalExpenses: totalProjectedExpenses,
+        });
+    }
+
     const backtest = calculateBacktestMetrics(allTransactions);
 
     return {
@@ -708,6 +753,7 @@ function buildMonthlyForecast(allTransactions) {
         predictedEndBalance,
         daysRemaining,
         activeExpenseDays: variableForecast.activeExpenseDays,
+
         confidence: getForecastConfidence({
             historyWindowDays: variableForecast.historyWindowDays,
             activeExpenseDays: variableForecast.activeExpenseDays,
@@ -715,13 +761,20 @@ function buildMonthlyForecast(allTransactions) {
                 remainingRecurringIncomeItems.length + remainingRecurringExpenseItems.length,
             weekdayProfiles: variableForecast.weekdayProfiles
         }),
+
         recurringSummary: {
             detectedSeries: recurringSeries.length,
             futureIncomeItems: remainingRecurringIncomeItems.length,
             futureExpenseItems: remainingRecurringExpenseItems.length
         },
+
         recurringIncomeItems: remainingRecurringIncomeItems,
         recurringExpenseItems: remainingRecurringExpenseItems,
+
+        budgetAnalysis,
+        budgetAnalysis,
+        categoryBudgetAnalysis,
+
         variableModel: {
             historyDays: variableForecast.historyDays,
             historyWindowDays: variableForecast.historyWindowDays,
@@ -729,6 +782,7 @@ function buildMonthlyForecast(allTransactions) {
             weekdayProfiles: variableForecast.weekdayProfiles,
             dailyPredictions: variableForecast.dailyPredictions
         },
+
         categoryForecast,
         validation: backtest
     };

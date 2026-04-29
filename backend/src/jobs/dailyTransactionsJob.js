@@ -12,7 +12,6 @@ function normalize(date) {
 }
 
 async function runDailyTransactionsJob() {
-    console.log("Running daily transaction job...", new Date());
 
     const users = await User.find();
 
@@ -23,8 +22,6 @@ async function runDailyTransactionsJob() {
             let lastDate = user.lastSimulatedBatchDate
                 ? normalize(user.lastSimulatedBatchDate)
                 : null;
-
-            // ====== GENERAZIONE TRANSAZIONI ======
 
             if (!lastDate) {
                 const newTransactions = generateThreeDailyTransactions(
@@ -93,8 +90,6 @@ async function runDailyTransactionsJob() {
             console.error(`Error processing user ${user._id}`, err);
         }
     }
-
-    console.log("Daily transaction job completed");
 }
 
 function startDailyTransactionsJob() {

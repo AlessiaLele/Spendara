@@ -157,7 +157,7 @@ function AddCashTransactionForm({
                 <option value="Spesa">Spesa</option>
                 <option value="Cibo">Cibo</option>
                 <option value="Trasporti">Trasporti</option>
-                <option value="Svago">Svago</option>
+                <option value="Intrattenimento">Intrattenimento</option>
                 <option value="Bollette">Bollette</option>
                 <option value="Shopping">Shopping</option>
                 <option value="Salute">Salute</option>
