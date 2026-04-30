@@ -1,7 +1,8 @@
-import Budget from "../models/Budget.js";
+// controllers/budgetController.js
+const Budget = require('../models/Budget');
 
 // GET budget corrente
-export const getCurrentBudget = async (req, res) => {
+const getCurrentBudget = async (req, res) => {
     const now = new Date();
 
     const budget = await Budget.findOne({
@@ -14,7 +15,7 @@ export const getCurrentBudget = async (req, res) => {
 };
 
 // CREATE / UPDATE budget
-export const setBudget = async (req, res) => {
+const setBudget = async (req, res) => {
     const { totalBudget, categoryBudgets } = req.body;
     const now = new Date();
 
@@ -39,4 +40,9 @@ export const setBudget = async (req, res) => {
     }
 
     res.json(budget);
+};
+
+module.exports = {
+    getCurrentBudget,
+    setBudget
 };
