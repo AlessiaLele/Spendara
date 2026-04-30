@@ -278,7 +278,7 @@ async function getDashboardData(req, res) {
             .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
             .slice(0, 5);
 
-        const forecast = buildMonthlyForecast(allTransactions);
+        const forecast = await buildMonthlyForecast(allTransactions, userId);
 
         return res.status(200).json({
             period,
@@ -311,7 +311,7 @@ async function getForecastData(req, res) {
     try {
         const userId = req.user._id;
         const allTransactions = await Transaction.find({ userId }).sort({ date: -1 });
-        const forecast = buildMonthlyForecast(allTransactions);
+        const forecast = await buildMonthlyForecast(allTransactions, userId);
 
         return res.status(200).json(forecast);
     } catch (error) {

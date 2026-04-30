@@ -31,7 +31,7 @@ const setBudget = async (req, res) => {
         await budget.save();
     } else {
         budget = await Budget.create({
-            userId: req.user.id,
+            userId: req.user._id,
             month: now.getMonth(),
             year: now.getFullYear(),
             totalBudget,
