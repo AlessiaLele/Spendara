@@ -13,6 +13,7 @@ import { getDashboardData } from '../api/dashboardApi';
 import { deleteTransaction } from '../api/transactionApi';
 import AddCashTransactionForm from '../components/AddCashTransactionForm';
 import TransactionsList from '../components/TransactionsList';
+import BudgetForm from '../components/BudgetForm';
 import '../styles/Dashboard.css';
 
 const COLORS = ['#4f46e5', '#7c3aed', '#0ea5e9', '#22c55e', '#f59e0b', '#ef4444'];
@@ -710,6 +711,52 @@ function DashboardPage() {
                     onDeleteTransaction={handleDeleteTransaction}
                 />
             </div>
+        </div>
+    );
+}
+
+export function Dashboard({ data, refetch }) {
+    const [showBudgetModal, setShowBudgetModal] = useState(false);
+
+    return (
+        <div className="space-y-6">
+
+            {/* RIEPILOGO */}
+            <div className="rounded-2xl shadow p-4 flex justify-between items-center">
+                <div>
+                    <h2 className="text-lg font-semibold">Riepilogo mese</h2>
+                    <p>Saldo: € {data?.summary?.balance}</p>
+                    <p>Entrate: € {data?.summary?.totalIncome}</p>
+                    <p>Uscite: € {data?.summary?.totalExpenses}</p>
+                </div>
+
+                <button
+                    onClick={() => setShowBudgetModal(true)}
+                    className="rounded-xl px-4 py-2 border"
+                >
+                    Imposta budget
+                </button>
+            </div>
+
+            {/* MODAL */}
+            {showBudgetModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">Budget mensile</h3>
+                            <button onClick={() => setShowBudgetModal(false)}>✕</button>
+                        </div>
+
+                        <BudgetForm
+                            onSaved={() => {
+                                setShowBudgetModal(false);
+                                refetch?.(); // ricarica dashboard
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-const {
-    getCurrentBudget,
-    setBudget
-} = require('../controllers/budgetController');
+const authMiddleware = require('../middleware/authMiddleware');
 
-const authMiddleware = require("../middleware/authMiddleware");
+const budgetController = require('../controllers/budgetController');
 
-router.get('/', getCurrentBudget);
-router.post('/', setBudget);
+router.get('/', authMiddleware, budgetController.getBudgetByMonth);
+router.post('/', authMiddleware, budgetController.upsertMonthlyBudget);
 
 module.exports = router;
