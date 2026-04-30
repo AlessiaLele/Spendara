@@ -1,5 +1,5 @@
 const { normalizeCategory } = require('../utils/normalizeCategory');
-const Budget = require("../models/budget").default;
+const Budget = require("../models/Budget");
 const { evaluateMonthlyBudget, evaluateCategoryBudgets } = require("./budgetService");
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -706,14 +706,48 @@ async function buildMonthlyForecast(allTransactions, userId) {
     });
 
     let budgetAnalysis = null;
-
     let categoryBudgetAnalysis = [];
 
-    if (budgetDoc && budgetDoc.categoryBudgets?.length) {
-        categoryBudgetAnalysis = evaluateCategoryBudgets(
-            categoryForecast,
-            budgetDoc.categoryBudgets
-        );
+    try {
+        const budgetDoc = await Budget.findOne({
+            userId: userId,
+            month: now.getMonth(),
+            year: now.getFullYear(),
+        }).lean();
+
+        if (budgetDoc) {
+            if (budgetDoc.categoryBudgets?.length && typeof evaluateCategoryBudgets === 'function') {
+                categoryBudgetAnalysis = evaluateCategoryBudgets(
+                    budgetDoc.categoryBudgets,
+                    categoryForecast
+                );
+            }
+
+            if (typeof evaluateMonthlyBudget === 'function') {
+                const daysElapsed = Math.ceil((now - monthStart) / DAY_MS);
+
+                const daysInMonth = new Date(
+                    now.getFullYear(),
+                    now.getMonth() + 1,
+                    0
+                ).getDate();
+
+                const totalProjectedExpenses =
+                    currentExpenses +
+                    remainingRecurringExpenses +
+                    variableForecast.projectedVariableExpenses;
+
+                budgetAnalysis = evaluateMonthlyBudget({
+                    budget: budgetDoc.totalBudget ?? budgetDoc.monthlyLimit ?? 0,
+                    currentExpenses,
+                    daysElapsed,
+                    daysInMonth,
+                    projectedTotalExpenses: totalProjectedExpenses,
+                });
+            }
+        }
+    } catch (error) {
+        console.warn('Budget analysis skipped:', error.message);
     }
 
     if (budgetDoc) {
@@ -771,7 +805,6 @@ async function buildMonthlyForecast(allTransactions, userId) {
         recurringIncomeItems: remainingRecurringIncomeItems,
         recurringExpenseItems: remainingRecurringExpenseItems,
 
-        budgetAnalysis,
         budgetAnalysis,
         categoryBudgetAnalysis,
 

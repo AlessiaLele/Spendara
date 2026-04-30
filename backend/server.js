@@ -10,7 +10,7 @@ const tinkRoutes = require('./src/routes/tinkRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const { startDailyTransactionsJob } = require('./src/jobs/dailyTransactionsJob');
-
+const budgetRoutes = require("./src/routes/budgetRoutes.js");
 
 const app = express();
 
@@ -23,7 +23,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/tink', tinkRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/transactions', transactionRoutes);
-
+app.use("/api/budgets", budgetRoutes);
 
 mongoose
     .connect(process.env.MONGO_URI)
