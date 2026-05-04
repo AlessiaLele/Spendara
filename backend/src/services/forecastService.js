@@ -173,7 +173,8 @@ function detectRecurringTransactions(allTransactions, now, monthEnd) {
         const lastTx = sorted[sorted.length - 1];
         const predictedNextDate = addDays(new Date(lastTx.date), Math.round(avgInterval));
         const isFutureInCurrentMonth =
-            predictedNextDate > now && predictedNextDate <= monthEnd;
+            startOfDay(predictedNextDate) >= startOfDay(now) &&
+            startOfDay(predictedNextDate) <= startOfDay(monthEnd);
 
         recurringSeries.push({
             key: getRecurringGroupKey(lastTx),
@@ -699,12 +700,6 @@ async function buildMonthlyForecast(allTransactions, userId) {
     const nowMonth = now.getMonth();
     const nowYear = now.getFullYear();
 
-    const budgetDoc = await Budget.findOne({
-        userId: userId,
-        month: nowMonth,
-        year: nowYear,
-    });
-
     let budgetAnalysis = null;
     let categoryBudgetAnalysis = [];
 
@@ -748,31 +743,6 @@ async function buildMonthlyForecast(allTransactions, userId) {
         }
     } catch (error) {
         console.warn('Budget analysis skipped:', error.message);
-    }
-
-    if (budgetDoc) {
-        const daysElapsed = Math.ceil(
-            (now - monthStart) / (1000 * 60 * 60 * 24)
-        );
-
-        const daysInMonth = new Date(
-            now.getFullYear(),
-            now.getMonth() + 1,
-            0
-        ).getDate();
-
-        const totalProjectedExpenses =
-            currentExpenses +
-            remainingRecurringExpenses +
-            variableForecast.projectedVariableExpenses;
-
-        budgetAnalysis = evaluateMonthlyBudget({
-            budget: budgetDoc.totalBudget,
-            currentExpenses,
-            daysElapsed,
-            daysInMonth,
-            projectedTotalExpenses: totalProjectedExpenses,
-        });
     }
 
     const backtest = calculateBacktestMetrics(allTransactions);

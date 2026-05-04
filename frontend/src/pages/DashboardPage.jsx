@@ -71,18 +71,58 @@ function DashboardPage() {
         }).format(amount || 0);
     };
 
-    const formatPeriodLabel = (period) => {
+    const getPeriodLabels = (period) => {
         switch (period) {
             case 'daily':
-                return 'giornaliero';
+                return {
+                    totalTransactions: 'Transazioni totali giornaliere',
+                    totalExpenses: 'Totale uscite giornaliere',
+                    numberTransactions: 'Numero transazioni giornaliere',
+                    balance: 'Saldo giornaliero',
+                    totalExpensesCaption: 'Filtrate per periodo giornaliero',
+                    numberTransactionsCaption: 'Periodo giornaliero',
+                    balanceCaption: 'Entrate meno uscite nel periodo giornaliero',
+                };
             case 'weekly':
-                return 'settimanale';
+                return {
+                    totalTransactions: 'Transazioni totali settimanali',
+                    totalExpenses: 'Totale uscite settimanali',
+                    numberTransactions: 'Numero transazioni settimanali',
+                    balance: 'Saldo settimanale',
+                    totalExpensesCaption: 'Filtrate per periodo settimanale',
+                    numberTransactionsCaption: 'Periodo settimanale',
+                    balanceCaption: 'Entrate meno uscite nel periodo settimanale',
+                };
             case 'monthly':
-                return 'mensile';
+                return {
+                    totalTransactions: 'Totale transazioni mensile',
+                    totalExpenses: 'Totale uscite mensile',
+                    numberTransactions: 'Numero transazioni mensile',
+                    balance: 'Saldo mensile',
+                    totalExpensesCaption: 'Filtrate per periodo mensile',
+                    numberTransactionsCaption: 'Periodo mensile',
+                    balanceCaption: 'Entrate meno uscite nel periodo mensile',
+                };
             case 'yearly':
-                return 'annuale';
+                return {
+                    totalTransactions: 'Totale transazioni annuali',
+                    totalExpenses: 'Totale uscite annuali',
+                    numberTransactions: 'Numero transazioni annuali',
+                    balance: 'Saldo annuale',
+                    totalExpensesCaption: 'Filtrate per periodo annuale',
+                    numberTransactionsCaption: 'Periodo annuale',
+                    balanceCaption: 'Entrate meno uscite nel periodo annuale',
+                };
             default:
-                return 'mensile';
+                return {
+                    totalTransactions: 'Totale transazioni mensile',
+                    totalExpenses: 'Totale uscite mensile',
+                    numberTransactions: 'Numero transazioni mensile',
+                    balance: 'Saldo mensile',
+                    totalExpensesCaption: 'Filtrate per periodo mensile',
+                    numberTransactionsCaption: 'Periodo mensile',
+                    balanceCaption: 'Entrate meno uscite nel periodo mensile',
+                };
         }
     };
 
@@ -152,6 +192,7 @@ function DashboardPage() {
         balance: 0
     };
 
+    const periodLabels = getPeriodLabels(selectedPeriod);
     const categories = dashboardData?.categories || [];
     const trend = dashboardData?.trend || [];
     const topExpenses = dashboardData?.topExpenses || [];
@@ -241,7 +282,7 @@ function DashboardPage() {
 
                 <div className="hero-right">
                     <div className="hero-stat">
-                        <span>Transazioni totali ({formatPeriodLabel(selectedPeriod)})</span>
+                        <span>{periodLabels.totalTransactions}</span>
                         <strong>{summary.totalTransactions}</strong>
                     </div>
 
@@ -266,21 +307,21 @@ function DashboardPage() {
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Totale uscite</p>
+                    <p className="stat-label">{periodLabels.totalExpenses}</p>
                     <h2>{formatAmount(summary.totalExpenses)}</h2>
-                    <p className="stat-caption">Filtrate per periodo selezionato</p>
+                    <p className="stat-caption">{periodLabels.totalExpensesCaption}</p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Numero transazioni</p>
+                    <p className="stat-label">{periodLabels.numberTransactions}</p>
                     <h2>{summary.totalTransactions}</h2>
-                    <p className="stat-caption">Solo periodo selezionato</p>
+                    <p className="stat-caption">{periodLabels.numberTransactionsCaption}</p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Saldo periodo</p>
+                    <p className="stat-label">{periodLabels.balance}</p>
                     <h2>{formatAmount(summary.balance)}</h2>
-                    <p className="stat-caption">Entrate meno uscite nel periodo</p>
+                    <p className="stat-caption">{periodLabels.balanceCaption}</p>
                 </div>
             </div>
 
