@@ -12,8 +12,15 @@ async function addCashTransaction(req, res) {
             });
         }
 
+        const numericAmount = Number(amount);
+        if (Number.isNaN(numericAmount)) {
+            return res.status(400).json({
+                message: 'Amount non valido'
+            });
+        }
+
         const normalizedTransaction = normalizeTransactionInput({
-            amount: -Math.abs(amount),
+            amount: -Math.abs(numericAmount),
             category,
             description,
             date,
@@ -25,6 +32,9 @@ async function addCashTransaction(req, res) {
 
         const transaction = await Transaction.create({
             userId,
+            provider: null,
+            manualOverride: false,
+            deletedAt: null,
             ...normalizedTransaction
         });
 
@@ -44,7 +54,10 @@ async function getAllTransactions(req, res) {
     try {
         const userId = req.user._id;
 
-        const transactions = await Transaction.find({ userId }).sort({ date: -1 });
+        const transactions = await Transaction.find({
+            userId,
+            deletedAt: null
+        }).sort({ date: -1 }).lean();
 
         return res.status(200).json(transactions);
     } catch (error) {
@@ -63,7 +76,11 @@ async function updateTransactionCategory(req, res) {
 
         const normalizedCategoryValue = normalizeCategory(category);
 
-        const transaction = await Transaction.findOne({ _id: id, userId });
+        const transaction = await Transaction.findOne({
+            _id: id,
+            userId,
+            deletedAt: null
+        });
 
         if (!transaction) {
             return res.status(404).json({
@@ -72,6 +89,10 @@ async function updateTransactionCategory(req, res) {
         }
 
         transaction.category = normalizedCategoryValue;
+        if (transaction.source !== 'cash') {
+            transaction.manualOverride = true;
+        }
+
         await transaction.save();
 
         return res.status(200).json({
@@ -92,7 +113,11 @@ async function updateManualTransaction(req, res) {
         const { id } = req.params;
         const { amount, category, description, date } = req.body;
 
-        const transaction = await Transaction.findOne({ _id: id, userId });
+        const transaction = await Transaction.findOne({
+            _id: id,
+            userId,
+            deletedAt: null
+        });
 
         if (!transaction) {
             return res.status(404).json({
@@ -112,10 +137,17 @@ async function updateManualTransaction(req, res) {
             });
         }
 
+        const numericAmount = Number(amount);
+        if (Number.isNaN(numericAmount)) {
+            return res.status(400).json({
+                message: 'Amount non valido'
+            });
+        }
+
         const normalizedTransaction = normalizeTransactionInput({
             externalTransactionId: '',
             accountId: '',
-            amount,
+            amount: numericAmount,
             currencyCode: transaction.currencyCode || 'EUR',
             description,
             date,
@@ -127,6 +159,7 @@ async function updateManualTransaction(req, res) {
         transaction.category = normalizedTransaction.category;
         transaction.description = normalizedTransaction.description;
         transaction.date = normalizedTransaction.date;
+        transaction.manualOverride = false;
 
         await transaction.save();
 
@@ -147,17 +180,20 @@ async function deleteTransaction(req, res) {
         const userId = req.user._id;
         const { id } = req.params;
 
-        const deleted = await Transaction.findOneAndDelete({
+        const transaction = await Transaction.findOne({
             _id: id,
             userId,
-            source: 'cash'
+            deletedAt: null
         });
 
-        if (!deleted) {
+        if (!transaction) {
             return res.status(404).json({
                 message: 'Transazione non trovata o non eliminabile'
             });
         }
+
+        transaction.deletedAt = new Date();
+        await transaction.save();
 
         return res.status(200).json({
             message: 'Transazione eliminata con successo'

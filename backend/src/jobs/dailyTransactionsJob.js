@@ -1,17 +1,43 @@
 const cron = require('node-cron');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
-const { generateMissingDailyTransactions,
-        generateThreeDailyTransactions } = require('../services/transactionService');
+const { isDemoMode, generateThreeDailyTransactions, generateMissingDailyTransactions } = require('../services/transactionService');
 
-// helper per evitare problemi di timezone
 function normalize(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     return d;
 }
 
+async function insertMissingTransactions(userId, transactions) {
+    if (!Array.isArray(transactions) || !transactions.length) {
+        return 0;
+    }
+
+    const ids = transactions.map(tx => tx.externalTransactionId).filter(Boolean);
+
+    if (!ids.length) return 0;
+
+    const existing = await Transaction.find({
+        userId,
+        externalTransactionId: { $in: ids }
+    }).select('externalTransactionId').lean();
+
+    const existingIds = new Set(existing.map(tx => tx.externalTransactionId));
+    const newTransactions = transactions.filter(tx => tx.externalTransactionId && !existingIds.has(tx.externalTransactionId));
+
+    if (newTransactions.length > 0) {
+        await Transaction.insertMany(newTransactions, { ordered: false });
+    }
+
+    return newTransactions.length;
+}
+
 async function runDailyTransactionsJob() {
+    if (!isDemoMode()) {
+        console.log('[dailyTransactionsJob] Demo mode disattiva: nessuna transazione generata.');
+        return;
+    }
 
     const users = await User.find();
 
@@ -25,45 +51,40 @@ async function runDailyTransactionsJob() {
 
             if (!lastDate) {
                 const newTransactions = generateThreeDailyTransactions(
-                    user._id,
+                    user._id.toString(),
                     today,
                     'demo-account'
                 );
 
-                if (newTransactions.length > 0) {
-                    await Transaction.insertMany(newTransactions);
-                }
+                await insertMissingTransactions(user._id, newTransactions);
 
                 await User.updateOne(
                     { _id: user._id },
-                    { lastSimulatedBatchDate: today }
+                    { $set: { lastSimulatedBatchDate: today } }
                 );
             } else if (lastDate < today) {
-
                 const newTransactions = generateMissingDailyTransactions(
-                    user._id,
+                    user._id.toString(),
                     lastDate,
                     today,
                     'demo-account'
                 );
 
-                if (newTransactions.length > 0) {
-                    await Transaction.insertMany(newTransactions);
-                }
+                await insertMissingTransactions(user._id, newTransactions);
 
                 await User.updateOne(
                     { _id: user._id },
-                    { lastSimulatedBatchDate: today }
+                    { $set: { lastSimulatedBatchDate: today } }
                 );
             }
 
-           //Stipedio
-            if (today.getDate() === 10 || today.getDate() === 11) {
-
+            // Stipendio demo
+            const day = today.getDate();
+            if (day === 10 || day === 11) {
                 const salaryId = `salary-${user._id}-${today.toISOString().slice(0, 10)}`;
-
                 const existingSalary = await Transaction.findOne({
-                    externalTransactionId: `daily-${userId}-${date.toISOString().slice(0,10)}-${i}`
+                    userId: user._id,
+                    externalTransactionId: salaryId
                 });
 
                 if (!existingSalary) {
@@ -85,7 +106,6 @@ async function runDailyTransactionsJob() {
                     console.log(`Salary added for user ${user._id}`);
                 }
             }
-
         } catch (err) {
             console.error(`Error processing user ${user._id}`, err);
         }
@@ -97,7 +117,6 @@ function startDailyTransactionsJob() {
         runDailyTransactionsJob();
     });
 
-    // run immediato all'avvio
     runDailyTransactionsJob();
 }
 

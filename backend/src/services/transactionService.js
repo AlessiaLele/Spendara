@@ -8,6 +8,10 @@ const merchantsByCategory = {
     stipendio: ['Stipendio Azienda']
 };
 
+function isDemoMode() {
+    return String(process.env.TINK_USE_MOCK_DATA || '').toLowerCase() === 'true';
+}
+
 function randomFrom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -33,11 +37,22 @@ function randomAmount(category) {
     }
 }
 
-function generateTransaction(userId, date, accountId = 'demo-account') {
-    const categories = ['spesa', 'ristoranti', 'trasporti', 'shopping', 'intrattenimento', 'bollette'];
-    const category = randomFrom(categories);
+function normalizeDateKey(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+}
 
-    const merchants = merchantsByCategory[category] || ['Generic Store']; // ✅ fallback
+function generateTransaction(userId, date, accountId = 'demo-account', options = {}) {
+    const categories = ['spesa', 'ristoranti', 'trasporti', 'shopping', 'intrattenimento', 'bollette'];
+    const category = options.category || randomFrom(categories);
+    const merchants = merchantsByCategory[category] || ['Generic Store'];
+    const txDate = new Date(date);
+
+    const source = options.source || 'bank';
+    const externalTransactionId =
+        options.externalTransactionId ||
+        `bank-${userId}-${accountId}-${txDate.getTime()}-${Math.floor(Math.random() * 100000)}`;
 
     return {
         userId,
@@ -45,10 +60,10 @@ function generateTransaction(userId, date, accountId = 'demo-account') {
         amount: randomAmount(category),
         currencyCode: 'EUR',
         description: randomFrom(merchants),
-        date,
+        date: txDate,
         category,
-        source: 'bank',
-        externalTransactionId: `bank-${userId}-${date.getTime()}-${Math.floor(Math.random() * 100000)}`
+        source,
+        externalTransactionId
     };
 }
 
@@ -60,7 +75,7 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
         currentDate.setDate(currentDate.getDate() - i);
         currentDate.setHours(0, 0, 0, 0);
 
-        const transactionsPerDay = Math.floor(Math.random() * 3) + 1; // 1, 2, 3
+        const transactionsPerDay = Math.floor(Math.random() * 3) + 1;
 
         for (let j = 0; j < transactionsPerDay; j++) {
             const txDate = new Date(currentDate);
@@ -68,7 +83,12 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
             txDate.setMinutes(Math.floor(Math.random() * 60));
             txDate.setSeconds(Math.floor(Math.random() * 60));
 
-            transactions.push(generateTransaction(userId, txDate, accountId));
+            transactions.push(
+                generateTransaction(userId, txDate, accountId, {
+                    source: isDemoMode() ? 'bank' : 'bank',
+                    externalTransactionId: `bank-${userId}-${accountId}-${txDate.getTime()}-${j}`
+                })
+            );
         }
     }
 
@@ -87,20 +107,24 @@ function generateThreeDailyTransactions(userId, date, accountId = 'demo-account'
         txDate.setMinutes(Math.floor(Math.random() * 60));
         txDate.setSeconds(Math.floor(Math.random() * 60));
 
-        transactions.push(generateTransaction(userId, txDate, accountId));
+        transactions.push(
+            generateTransaction(userId, txDate, accountId, {
+                source: 'bank',
+                externalTransactionId: `bank-${userId}-${accountId}-${normalizeDateKey(txDate)}-${i}`
+            })
+        );
     }
 
     return transactions;
 }
 
-function generateMissingDailyTransactions(userId, startDate, endDate, accountId) {
+function generateMissingDailyTransactions(userId, startDate, endDate, accountId = 'demo-account') {
     const transactions = [];
 
     let current = new Date(startDate);
     current.setDate(current.getDate() + 1);
 
     while (current <= endDate) {
-
         const baseDate = new Date(current);
         baseDate.setHours(0, 0, 0, 0);
 
@@ -110,9 +134,12 @@ function generateMissingDailyTransactions(userId, startDate, endDate, accountId)
             txDate.setMinutes(Math.floor(Math.random() * 60));
             txDate.setSeconds(Math.floor(Math.random() * 60));
 
-            const tx = generateTransaction(userId, txDate, accountId);
-
-            transactions.push(tx);
+            transactions.push(
+                generateTransaction(userId, txDate, accountId, {
+                    source: 'bank',
+                    externalTransactionId: `bank-${userId}-${accountId}-${normalizeDateKey(txDate)}-${i}`
+                })
+            );
         }
 
         current.setDate(current.getDate() + 1);
@@ -122,6 +149,7 @@ function generateMissingDailyTransactions(userId, startDate, endDate, accountId)
 }
 
 module.exports = {
+    isDemoMode,
     generateTransaction,
     generateHistoricalTransactions,
     generateThreeDailyTransactions,

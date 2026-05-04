@@ -62,9 +62,9 @@ export async function getBankConnectionStatus(token) {
     return parseApiResponse(response);
 }
 
-export async function syncBankTransactions(token) {
-    const response = await fetch(`${API_BASE_URL}/api/tink/sync`, {
-        method: 'POST',
+export async function getBankAccounts(token) {
+    const response = await fetch(`${API_BASE_URL}/api/tink/accounts`, {
+        method: 'GET',
         headers: {
             Authorization: `Bearer ${token}`
         }
@@ -73,9 +73,43 @@ export async function syncBankTransactions(token) {
     return parseApiResponse(response);
 }
 
-export async function getBankTransactions(token) {
-    const response = await fetch(`${API_BASE_URL}/api/tink/transactions`, {
-        method: 'GET',
+export async function syncBankTransactions(token, accountId = '') {
+    const params = new URLSearchParams();
+    if (accountId) params.set('accountId', accountId);
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/tink/sync${params.toString() ? `?${params.toString()}` : ''}`,
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    return parseApiResponse(response);
+}
+
+export async function getBankTransactions(token, accountId = '') {
+    const params = new URLSearchParams();
+    if (accountId) params.set('accountId', accountId);
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/tink/transactions${params.toString() ? `?${params.toString()}` : ''}`,
+        {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    return parseApiResponse(response);
+}
+
+export async function disconnectBankConnection(token) {
+    const response = await fetch(`${API_BASE_URL}/api/tink/disconnect`, {
+        method: 'DELETE',
         headers: {
             Authorization: `Bearer ${token}`
         }

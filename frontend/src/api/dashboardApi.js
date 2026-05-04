@@ -29,3 +29,5 @@ export async function getDashboardData(token, period = 'monthly') {
 
     return parseApiResponse(response);
 }
+
+export default getDashboardData;
