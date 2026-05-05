@@ -32,8 +32,6 @@ function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const [showBudgetModal, setShowBudgetModal] = useState(false);
-
     const loadDashboard = async (period = selectedPeriod) => {
         try {
             setLoading(true);
@@ -73,6 +71,10 @@ function DashboardPage() {
         try {
             const token = localStorage.getItem('token');
             await deleteTransaction(token, id);
+
+            setAllTransactions((prev) =>
+                prev.filter((tx) => tx._id !== transactionId)
+            );
 
             if (editingTransaction?._id === id) setEditingTransaction(null);
 
@@ -119,10 +121,6 @@ function DashboardPage() {
                         <option value="monthly">Mensile</option>
                         <option value="yearly">Annuale</option>
                     </select>
-
-                    <button onClick={() => setShowBudgetModal(true)}>
-                        Budget
-                    </button>
                 </div>
             </div>
 
@@ -172,13 +170,21 @@ function DashboardPage() {
                 )}
             </div>
 
-            {/* FORM */}
-            <div className="dashboard-card">
-                <AddCashTransactionForm
-                    editingTransaction={editingTransaction}
-                    onCancelEdit={() => setEditingTransaction(null)}
-                    onTransactionAdded={loadDashboard}
-                />
+            {/* FORM + BUDGET */}
+            <div className="dashboard-right-column">
+                <div className="dashboard-card">
+                    <AddCashTransactionForm
+                        editingTransaction={editingTransaction}
+                        onCancelEdit={() => setEditingTransaction(null)}
+                        onTransactionAdded={loadDashboard}
+                    />
+                </div>
+
+                <div className="dashboard-card">
+                    <BudgetForm
+                        onBudgetCreated={() => loadDashboard()}
+                    />
+                </div>
             </div>
 
             {/* TOP EXPENSES */}
@@ -209,22 +215,6 @@ function DashboardPage() {
                 onEditTransaction={handleEdit}
                 onDeleteTransaction={handleDelete}
             />
-
-            {/* MODAL BUDGET */}
-            {showBudgetModal && (
-                <div className="modal">
-                    <div className="modal-content">
-                        <button onClick={() => setShowBudgetModal(false)}>X</button>
-
-                        <BudgetForm
-                            onSaved={() => {
-                                setShowBudgetModal(false);
-                                loadDashboard();
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

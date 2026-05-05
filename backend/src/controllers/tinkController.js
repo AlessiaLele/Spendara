@@ -4,9 +4,7 @@ const Transaction = require('../models/Transaction');
 const {
     getTinkConnectUrl,
     exchangeCodeForToken,
-    refreshAccessToken,
-    getAccounts,
-    getTransactions
+    getAccounts
 } = require('../services/tinkService');
 
 const {
@@ -15,51 +13,13 @@ const {
     verifyTinkState
 } = require('../utils/stateToken');
 
-function toDateOrNull(value) {
-    if (!value) return null;
-    const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function serializeAccount(account) {
-    return {
-        id: account.id,
-        name: account.name || 'Conto',
-        balance: Number(account.balance ?? 0),
-        currencyCode: account.currencyCode || 'EUR'
-    };
-}
-
-function getBankConnectionBaseQuery(userId) {
-    return {
-        userId,
-        provider: 'tink'
-    };
-}
-
-async function getValidAccessToken(bankConnection) {
-    if (!bankConnection?.accessToken) return null;
-
-    const tokenExpiresAt = toDateOrNull(bankConnection.tokenExpiresAt);
-    const isExpiringSoon = tokenExpiresAt
-        ? tokenExpiresAt.getTime() <= Date.now() + 60 * 1000
-        : false;
-
-    if (!bankConnection.refreshToken || !isExpiringSoon) {
-        return bankConnection.accessToken;
-    }
-
-    const refreshed = await refreshAccessToken(bankConnection.refreshToken);
-
-    bankConnection.accessToken = refreshed.accessToken || bankConnection.accessToken;
-    if (refreshed.refreshToken) bankConnection.refreshToken = refreshed.refreshToken;
-    if (refreshed.expiresAt) bankConnection.tokenExpiresAt = toDateOrNull(refreshed.expiresAt);
-    bankConnection.status = 'connected';
-    bankConnection.lastSyncError = null;
-    await bankConnection.save();
-
-    return bankConnection.accessToken;
-}
+const {
+    getBankConnectionBaseQuery,
+    getValidAccessToken,
+    syncBankConnection,
+    toDateOrNull,
+    serializeAccount
+} = require('../services/tinkSyncService');
 
 async function startConnect(req, res) {
     try {
@@ -79,49 +39,34 @@ async function startConnect(req, res) {
     }
 }
 
-async function importTransactions(userId, transactions, accounts) {
-    if (!Array.isArray(transactions) || !transactions.length) {
-        return 0;
-    }
+async function upsertBankConnectionFromToken(userId, tokenData) {
+    let bankConnection = await BankConnection.findOne(getBankConnectionBaseQuery(userId));
 
-    const accountMap = new Map((accounts || []).map(acc => [acc.id, acc]));
-    const transactionIds = transactions.map(t => t.id).filter(Boolean);
-
-    if (!transactionIds.length) return 0;
-
-    const existing = await Transaction.find({
-        userId,
-        externalTransactionId: { $in: transactionIds }
-    }).select('externalTransactionId').lean();
-
-    const existingIds = new Set(existing.map(t => t.externalTransactionId));
-
-    const newTransactions = transactions
-        .filter(tx => tx.id && !existingIds.has(tx.id))
-        .filter(tx => tx.accountId)
-        .map(tx => {
-            const account = accountMap.get(tx.accountId);
-
-            return {
-                userId,
-                provider: 'tink',
-                source: 'bank',
-                externalTransactionId: tx.id,
-                accountId: tx.accountId,
-                accountName: account?.name || tx.accountName || null,
-                amount: Number(tx.amount ?? 0),
-                currencyCode: tx.currencyCode || 'EUR',
-                description: tx.description || '',
-                date: tx.date ? new Date(tx.date) : new Date(),
-                category: tx.category || 'Uncategorized'
-            };
+    if (!bankConnection) {
+        bankConnection = await BankConnection.create({
+            userId,
+            provider: 'tink',
+            tinkUserId: tokenData.tinkUserId,
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken || null,
+            tokenExpiresAt: toDateOrNull(tokenData.expiresAt),
+            status: 'connected',
+            linkedAccounts: [],
+            lastSyncAt: null,
+            lastSyncError: null,
+            syncCursor: null
         });
-
-    if (newTransactions.length > 0) {
-        await Transaction.insertMany(newTransactions, { ordered: false });
+    } else {
+        bankConnection.accessToken = tokenData.accessToken;
+        bankConnection.refreshToken = tokenData.refreshToken || bankConnection.refreshToken || null;
+        bankConnection.tokenExpiresAt = toDateOrNull(tokenData.expiresAt);
+        bankConnection.tinkUserId = tokenData.tinkUserId || bankConnection.tinkUserId;
+        bankConnection.status = 'connected';
+        bankConnection.lastSyncError = null;
+        await bankConnection.save();
     }
 
-    return newTransactions.length;
+    return bankConnection;
 }
 
 async function handleCallback(req, res) {
@@ -151,82 +96,21 @@ async function handleCallback(req, res) {
 
         const userId = payload.userId;
         const tokenData = await exchangeCodeForToken(code);
+        await upsertBankConnectionFromToken(userId, tokenData);
 
-        let bankConnection = await BankConnection.findOne(getBankConnectionBaseQuery(userId));
-
-        if (!bankConnection) {
-            bankConnection = await BankConnection.create({
-                userId,
-                provider: 'tink',
-                tinkUserId: tokenData.tinkUserId,
-                accessToken: tokenData.accessToken,
-                refreshToken: tokenData.refreshToken || null,
-                tokenExpiresAt: toDateOrNull(tokenData.expiresAt),
-                status: 'connected',
-                linkedAccounts: [],
-                lastSyncAt: null,
-                lastSyncError: null
-            });
-        } else {
-            bankConnection.accessToken = tokenData.accessToken;
-            bankConnection.refreshToken = tokenData.refreshToken || bankConnection.refreshToken || null;
-            bankConnection.tokenExpiresAt = toDateOrNull(tokenData.expiresAt);
-            bankConnection.tinkUserId = tokenData.tinkUserId || bankConnection.tinkUserId;
-            bankConnection.status = 'connected';
-            bankConnection.lastSyncError = null;
-            await bankConnection.save();
-        }
-
-        const accessToken = await getValidAccessToken(bankConnection);
-        if (!accessToken) {
-            throw new Error('Access token non disponibile');
-        }
-
-        const accounts = await getAccounts(accessToken);
-        bankConnection.linkedAccounts = accounts.map(serializeAccount);
-        await bankConnection.save();
-
-        const accountIds = accounts.map(acc => acc.id);
-        const transactions = accountIds.length
-            ? await Promise.all(accountIds.map(accountId => getTransactions(accessToken, { accountId })))
-            : [await getTransactions(accessToken)];
-
-        const flattenedTransactions = transactions.flat();
-        const importedCount = await importTransactions(userId, flattenedTransactions, accounts);
-
-        bankConnection.lastSyncAt = new Date();
-        bankConnection.lastSyncError = null;
-        await bankConnection.save();
+        const syncResult = await syncBankConnection(userId, {
+            forceFullSync: true
+        });
 
         return res.status(200).json({
             message: 'Collegamento banca completato con successo',
-            accountsCount: accounts.length,
-            importedTransactions: importedCount
+            accountsCount: syncResult.accounts.length,
+            importedTransactions: syncResult.importedTransactions,
+            syncedAccounts: syncResult.syncedAccounts,
+            lastSyncAt: syncResult.bankConnection.lastSyncAt
         });
     } catch (error) {
         console.error('Errore handleCallback:', error);
-
-        try {
-            const { state } = req.query;
-            if (state) {
-                const payload = verifyTinkState(state);
-                if (payload?.userId) {
-                    await BankConnection.findOneAndUpdate(
-                        getBankConnectionBaseQuery(payload.userId),
-                        {
-                            $set: {
-                                status: 'failed',
-                                lastSyncError: error.message || 'Errore callback Tink'
-                            }
-                        },
-                        { new: true }
-                    );
-                }
-            }
-        } catch (_) {
-            // ignora errori secondari
-        }
-
         return res.status(500).json({
             message: 'Errore durante la gestione della callback Tink'
         });
@@ -251,7 +135,8 @@ async function getBankConnectionStatus(req, res) {
                     updatedAt: bankConnection.updatedAt,
                     lastSyncAt: bankConnection.lastSyncAt,
                     lastSyncError: bankConnection.lastSyncError || null,
-                    linkedAccounts: bankConnection.linkedAccounts || []
+                    linkedAccounts: bankConnection.linkedAccounts || [],
+                    syncCursor: bankConnection.syncCursor || null
                 }
                 : null
         });
@@ -298,7 +183,8 @@ async function getBankTransactions(req, res) {
 
         const query = {
             userId,
-            source: 'bank'
+            source: 'bank',
+            deletedAt: null
         };
 
         if (accountId) {
@@ -321,51 +207,18 @@ async function syncBankTransactions(req, res) {
         const userId = req.user._id.toString();
         const { accountId } = req.query;
 
-        const bankConnection = await BankConnection.findOne(getBankConnectionBaseQuery(userId));
-
-        if (!bankConnection || bankConnection.status !== 'connected' || !bankConnection.accessToken) {
-            return res.status(400).json({
-                message: 'Nessun conto bancario collegato'
-            });
-        }
-
-        const accessToken = await getValidAccessToken(bankConnection);
-        if (!accessToken) {
-            return res.status(400).json({
-                message: 'Access token non disponibile'
-            });
-        }
-
-        const accounts = await getAccounts(accessToken);
-
-        let accountsToSync = accounts;
-        if (accountId) {
-            accountsToSync = accounts.filter(acc => acc.id === accountId);
-        }
-
-        if (!accountsToSync.length) {
-            return res.status(404).json({
-                message: 'Conto bancario non trovato'
-            });
-        }
-
-        const transactionsByAccount = await Promise.all(
-            accountsToSync.map(acc => getTransactions(accessToken, { accountId: acc.id }))
-        );
-
-        const flattenedTransactions = transactionsByAccount.flat();
-        const importedCount = await importTransactions(userId, flattenedTransactions, accountsToSync);
-
-        bankConnection.linkedAccounts = accounts.map(serializeAccount);
-        bankConnection.lastSyncAt = new Date();
-        bankConnection.lastSyncError = null;
-        await bankConnection.save();
+        const result = await syncBankConnection(userId, {
+            accountId: accountId || '',
+            forceFullSync: false
+        });
 
         return res.status(200).json({
             message: 'Sincronizzazione completata con successo',
-            importedTransactions: importedCount,
-            totalFetched: flattenedTransactions.length,
-            syncedAccounts: accountsToSync.length
+            importedTransactions: result.importedTransactions,
+            totalFetched: result.totalFetched,
+            syncedAccounts: result.syncedAccounts,
+            lastSyncAt: result.bankConnection.lastSyncAt,
+            linkedAccounts: result.accounts
         });
     } catch (error) {
         console.error('Errore syncBankTransactions:', error);
@@ -377,7 +230,6 @@ async function syncBankTransactions(req, res) {
                     getBankConnectionBaseQuery(userId),
                     {
                         $set: {
-                            status: 'failed',
                             lastSyncError: error.message || 'Errore sync Tink'
                         }
                     },
@@ -388,8 +240,8 @@ async function syncBankTransactions(req, res) {
             // ignora errori secondari
         }
 
-        return res.status(500).json({
-            message: 'Errore durante la sincronizzazione delle transazioni bancarie'
+        return res.status(error.statusCode || 500).json({
+            message: error.message || 'Errore durante la sincronizzazione delle transazioni bancarie'
         });
     }
 }
@@ -407,7 +259,8 @@ async function disconnectBankConnection(req, res) {
                     refreshToken: null,
                     tokenExpiresAt: null,
                     linkedAccounts: [],
-                    lastSyncError: null
+                    lastSyncError: null,
+                    syncCursor: null
                 }
             },
             { new: true }

@@ -50,7 +50,7 @@ function LoginPage() {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
 
-            navigate('/connect-bank');
+            navigate(data.redirectTo || (data.hasConnectedBank ? '/dashboard' : '/connect-bank'));
         } catch (error) {
             setIsError(true);
             setMessage('Errore di connessione al server');

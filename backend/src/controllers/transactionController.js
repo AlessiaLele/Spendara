@@ -12,15 +12,8 @@ async function addCashTransaction(req, res) {
             });
         }
 
-        const numericAmount = Number(amount);
-        if (Number.isNaN(numericAmount)) {
-            return res.status(400).json({
-                message: 'Amount non valido'
-            });
-        }
-
         const normalizedTransaction = normalizeTransactionInput({
-            amount: -Math.abs(numericAmount),
+            amount: -Math.abs(amount),
             category,
             description,
             date,
@@ -32,9 +25,6 @@ async function addCashTransaction(req, res) {
 
         const transaction = await Transaction.create({
             userId,
-            provider: null,
-            manualOverride: false,
-            deletedAt: null,
             ...normalizedTransaction
         });
 
@@ -57,7 +47,7 @@ async function getAllTransactions(req, res) {
         const transactions = await Transaction.find({
             userId,
             deletedAt: null
-        }).sort({ date: -1 }).lean();
+        }).sort({ date: -1 });
 
         return res.status(200).json(transactions);
     } catch (error) {
@@ -89,10 +79,6 @@ async function updateTransactionCategory(req, res) {
         }
 
         transaction.category = normalizedCategoryValue;
-        if (transaction.source !== 'cash') {
-            transaction.manualOverride = true;
-        }
-
         await transaction.save();
 
         return res.status(200).json({
@@ -137,17 +123,10 @@ async function updateManualTransaction(req, res) {
             });
         }
 
-        const numericAmount = Number(amount);
-        if (Number.isNaN(numericAmount)) {
-            return res.status(400).json({
-                message: 'Amount non valido'
-            });
-        }
-
         const normalizedTransaction = normalizeTransactionInput({
             externalTransactionId: '',
             accountId: '',
-            amount: numericAmount,
+            amount,
             currencyCode: transaction.currencyCode || 'EUR',
             description,
             date,
@@ -159,7 +138,6 @@ async function updateManualTransaction(req, res) {
         transaction.category = normalizedTransaction.category;
         transaction.description = normalizedTransaction.description;
         transaction.date = normalizedTransaction.date;
-        transaction.manualOverride = false;
 
         await transaction.save();
 
@@ -183,6 +161,7 @@ async function deleteTransaction(req, res) {
         const transaction = await Transaction.findOne({
             _id: id,
             userId,
+            source: 'cash',
             deletedAt: null
         });
 

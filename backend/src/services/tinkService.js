@@ -221,6 +221,33 @@ function generateMockTransactions({ count = 250, accountIds = ['demo-account-1']
     return transactions;
 }
 
+function extractCollection(data) {
+    if (Array.isArray(data)) return data;
+    if (!data || typeof data !== 'object') return [];
+
+    const candidates = [data.transactions, data.items, data.data, data.results, data.accounts];
+    for (const candidate of candidates) {
+        if (Array.isArray(candidate)) return candidate;
+    }
+
+    return [];
+}
+
+function extractNextCursor(data) {
+    if (!data || typeof data !== 'object') return null;
+
+    return (
+        data.nextCursor ||
+        data.next_cursor ||
+        data.continuationToken ||
+        data.continuation_token ||
+        data.cursor?.next ||
+        data.pageInfo?.nextCursor ||
+        data.pagination?.nextCursor ||
+        null
+    );
+}
+
 async function getAccounts(accessToken) {
     if (isMockMode()) {
         return generateMockAccounts();
@@ -234,12 +261,7 @@ async function getAccounts(accessToken) {
         }
     });
 
-    const accounts =
-        Array.isArray(data) ? data :
-            Array.isArray(data.accounts) ? data.accounts :
-                Array.isArray(data.items) ? data.items :
-                    Array.isArray(data.data) ? data.data :
-                        [];
+    const accounts = extractCollection(data);
 
     return accounts.map((account) => ({
         id: account.id || account.accountId || account.externalId,
@@ -249,19 +271,21 @@ async function getAccounts(accessToken) {
     })).filter(account => account.id);
 }
 
-async function getTransactions(accessToken, options = {}) {
+async function getTransactionsPage(accessToken, options = {}) {
     const {
         accountId = null,
-        accountIds = null,
         from = null,
         to = null,
-        cursor = null,
-        count = Number(process.env.MOCK_TRANSACTIONS_COUNT || 250)
+        cursor = null
     } = options;
 
     if (isMockMode()) {
-        const ids = accountIds?.length ? accountIds : (accountId ? [accountId] : ['demo-account-1']);
-        return generateMockTransactions({ count, accountIds: ids });
+        const count = Number(process.env.MOCK_TRANSACTIONS_COUNT || 250);
+        const ids = accountId ? [accountId] : ['demo-account-1'];
+        return {
+            transactions: generateMockTransactions({ count, accountIds: ids }),
+            nextCursor: null
+        };
     }
 
     const transactionsUrl = getRequiredEnv('TINK_TRANSACTIONS_URL');
@@ -279,23 +303,47 @@ async function getTransactions(accessToken, options = {}) {
         }
     });
 
-    const transactions =
-        Array.isArray(data) ? data :
-            Array.isArray(data.transactions) ? data.transactions :
-                Array.isArray(data.items) ? data.items :
-                    Array.isArray(data.data) ? data.data :
-                        [];
+    const transactions = extractCollection(data);
+    const nextCursor = extractNextCursor(data);
 
-    return transactions.map((tx, index) => ({
-        id: tx.id || tx.transactionId || tx.externalId || `${accountId || 'acc'}-${index}`,
-        accountId: tx.accountId || accountId || tx.account?.id || tx.account?.accountId || null,
-        amount: Number(tx.amount ?? tx.value ?? 0),
-        currencyCode: tx.currencyCode || tx.currency || 'EUR',
-        description: tx.description || tx.merchantName || tx.counterpartName || '',
-        date: tx.date || tx.bookingDate || tx.valueDate || new Date().toISOString(),
-        category: tx.category || tx.merchantCategory || 'Uncategorized',
-        raw: tx
-    })).filter(tx => tx.id);
+    return {
+        transactions: transactions.map((tx, index) => ({
+            id: tx.id || tx.transactionId || tx.externalId || `${accountId || 'acc'}-${index}`,
+            accountId: tx.accountId || accountId || tx.account?.id || tx.account?.accountId || null,
+            amount: Number(tx.amount ?? tx.value ?? 0),
+            currencyCode: tx.currencyCode || tx.currency || 'EUR',
+            description: tx.description || tx.merchantName || tx.counterpartName || '',
+            date: tx.date || tx.bookingDate || tx.valueDate || new Date().toISOString(),
+            category: tx.category || tx.merchantCategory || 'Uncategorized',
+            raw: tx
+        })).filter(tx => tx.id),
+        nextCursor
+    };
+}
+
+async function getTransactions(accessToken, options = {}) {
+    const maxPages = Math.max(1, Number(process.env.TINK_MAX_TRANSACTION_PAGES || 20));
+    const seenCursors = new Set();
+    const aggregated = [];
+    let cursor = options.cursor || null;
+
+    for (let page = 0; page < maxPages; page++) {
+        const { transactions, nextCursor } = await getTransactionsPage(accessToken, {
+            ...options,
+            cursor
+        });
+
+        aggregated.push(...transactions);
+
+        if (!nextCursor || seenCursors.has(nextCursor) || nextCursor === cursor) {
+            break;
+        }
+
+        seenCursors.add(nextCursor);
+        cursor = nextCursor;
+    }
+
+    return aggregated;
 }
 
 module.exports = {
@@ -303,5 +351,8 @@ module.exports = {
     exchangeCodeForToken,
     refreshAccessToken,
     getAccounts,
-    getTransactions
+    getTransactions,
+    getTransactionsPage,
+    extractCollection,
+    extractNextCursor
 };

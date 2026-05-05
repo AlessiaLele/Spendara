@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const BankConnection = require('../models/BankConnection');
 const generateToken = require('../utils/generateToken');
 
 async function register(req, res) {
@@ -79,9 +80,19 @@ async function login(req, res) {
 
         const token = generateToken(user._id);
 
+        const bankConnection = await BankConnection.findOne({
+            userId: user._id,
+            provider: 'tink',
+            status: 'connected'
+        }).select('_id');
+
+        const hasConnectedBank = !!bankConnection;
+
         return res.status(200).json({
             message: 'Login effettuato',
             token,
+            hasConnectedBank,
+            redirectTo: hasConnectedBank ? '/dashboard' : '/connect-bank',
             user: {
                 id: user._id,
                 name: user.name,
