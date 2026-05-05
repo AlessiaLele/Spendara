@@ -160,19 +160,19 @@ async function deleteTransaction(req, res) {
 
         const transaction = await Transaction.findOne({
             _id: id,
-            userId,
-            source: 'cash',
-            deletedAt: null
+            userId
         });
 
         if (!transaction) {
             return res.status(404).json({
-                message: 'Transazione non trovata o non eliminabile'
+                message: 'Transazione non trovata'
             });
         }
 
-        transaction.deletedAt = new Date();
-        await transaction.save();
+        await Transaction.deleteOne({
+            _id: id,
+            userId
+        });
 
         return res.status(200).json({
             message: 'Transazione eliminata con successo'

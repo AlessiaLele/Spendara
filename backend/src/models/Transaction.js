@@ -39,7 +39,7 @@ const transactionSchema = new mongoose.Schema(
         },
         source: {
             type: String,
-            enum: ['bank', 'cash', 'simulated'],
+            enum: ['bank', 'cash'],
             default: 'bank',
             index: true
         },
