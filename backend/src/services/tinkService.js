@@ -134,6 +134,16 @@ async function refreshAccessToken(refreshToken) {
     return normalizeTokenResponse(data);
 }
 
+/* =========================
+   NUOVA LOGICA MOCK GIORNALIERA
+   ========================= */
+
+function normalizeDateKey(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
 function randomItem(items) {
     return items[Math.floor(Math.random() * items.length)];
 }
@@ -142,13 +152,12 @@ function randomAmount(min, max) {
     return Number((Math.random() * (max - min) + min).toFixed(2));
 }
 
-function randomDateWithinLastMonths(months = 6) {
-    const now = new Date();
-    const past = new Date();
-    past.setMonth(now.getMonth() - months);
-
-    const randomTimestamp = past.getTime() + Math.random() * (now.getTime() - past.getTime());
-    return new Date(randomTimestamp).toISOString();
+function randomDateInsideDay(day) {
+    const d = new Date(day);
+    d.setHours(8 + Math.floor(Math.random() * 12));
+    d.setMinutes(Math.floor(Math.random() * 60));
+    d.setSeconds(Math.floor(Math.random() * 60));
+    return d.toISOString();
 }
 
 function generateMockAccounts() {
@@ -168,58 +177,61 @@ function generateMockAccounts() {
     ];
 }
 
-function generateMockTransactions({ count = 250, accountIds = ['demo-account-1'] } = {}) {
+function generateMockTransactions({ accountIds = ['demo-account-1'], from, to } = {}) {
     const expenseTemplates = [
         { description: 'Supermercato Conad', category: 'Groceries', min: -120, max: -15 },
-        { description: 'Esselunga', category: 'Groceries', min: -140, max: -20 },
         { description: 'Carburante Q8', category: 'Transport', min: -90, max: -20 },
-        { description: 'Eni Station', category: 'Transport', min: -100, max: -25 },
         { description: 'Bar Centrale', category: 'Food', min: -18, max: -2.5 },
-        { description: 'Ristorante', category: 'Food', min: -80, max: -18 },
         { description: 'Amazon', category: 'Shopping', min: -180, max: -8 },
-        { description: 'Zara', category: 'Shopping', min: -120, max: -20 },
-        { description: 'Farmacia', category: 'Health', min: -45, max: -6 },
-        { description: 'Affitto', category: 'Housing', min: -950, max: -500 },
-        { description: 'Bollette Luce', category: 'Utilities', min: -140, max: -40 },
-        { description: 'Bolletta Gas', category: 'Utilities', min: -160, max: -35 },
-        { description: 'Netflix', category: 'Entertainment', min: -18, max: -7 },
-        { description: 'Spotify', category: 'Entertainment', min: -12, max: -5 },
-        { description: 'Palestra', category: 'Health', min: -70, max: -25 },
-        { description: 'Taxi', category: 'Transport', min: -35, max: -8 },
-        { description: 'Trenitalia', category: 'Transport', min: -80, max: -12 },
-        { description: 'Ikea', category: 'Home', min: -250, max: -20 }
+        { description: 'Farmacia', category: 'Health', min: -45, max: -6 }
     ];
 
     const incomeTemplates = [
         { description: 'Stipendio', category: 'Salary', min: 1200, max: 2800 },
-        { description: 'Rimborso', category: 'Refund', min: 20, max: 180 },
-        { description: 'Bonifico Ricevuto', category: 'Income', min: 50, max: 600 },
-        { description: 'Cashback', category: 'Income', min: 5, max: 40 }
+        { description: 'Rimborso', category: 'Refund', min: 20, max: 180 }
     ];
 
+    const start = from ? new Date(from) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const end = to ? new Date(to) : new Date();
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
     const transactions = [];
-    const safeAccountIds = accountIds?.length ? accountIds : ['demo-account-1'];
+    const safeAccountIds = accountIds.length ? accountIds : ['demo-account-1'];
 
-    for (let i = 0; i < count; i++) {
-        const isIncome = Math.random() < 0.15;
-        const template = isIncome ? randomItem(incomeTemplates) : randomItem(expenseTemplates);
-        const accountId = randomItem(safeAccountIds);
-        const amount = randomAmount(template.min, template.max);
+    let current = new Date(start);
 
-        transactions.push({
-            id: `txn-${accountId}-${i + 1}`,
-            accountId,
-            amount,
-            currencyCode: 'EUR',
-            description: template.description,
-            date: randomDateWithinLastMonths(8),
-            category: template.category
-        });
+    while (current <= end) {
+        for (const accountId of safeAccountIds) {
+            for (let i = 0; i < 3; i++) {
+                const isIncome = Math.random() < 0.15;
+                const template = isIncome
+                    ? randomItem(incomeTemplates)
+                    : randomItem(expenseTemplates);
+
+                const amount = randomAmount(template.min, template.max);
+
+                transactions.push({
+                    id: `txn-${accountId}-${normalizeDateKey(current)}-${i}`,
+                    accountId,
+                    amount,
+                    currencyCode: 'EUR',
+                    description: template.description,
+                    date: randomDateInsideDay(current),
+                    category: template.category
+                });
+            }
+        }
+
+        current.setDate(current.getDate() + 1);
     }
 
     transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
     return transactions;
 }
+
+/* ========================= */
 
 function extractCollection(data) {
     if (Array.isArray(data)) return data;
@@ -272,18 +284,12 @@ async function getAccounts(accessToken) {
 }
 
 async function getTransactionsPage(accessToken, options = {}) {
-    const {
-        accountId = null,
-        from = null,
-        to = null,
-        cursor = null
-    } = options;
+    const { accountId = null, from = null, to = null, cursor = null } = options;
 
     if (isMockMode()) {
-        const count = Number(process.env.MOCK_TRANSACTIONS_COUNT || 250);
         const ids = accountId ? [accountId] : ['demo-account-1'];
         return {
-            transactions: generateMockTransactions({ count, accountIds: ids }),
+            transactions: generateMockTransactions({ accountIds: ids, from, to }),
             nextCursor: null
         };
     }
@@ -309,11 +315,11 @@ async function getTransactionsPage(accessToken, options = {}) {
     return {
         transactions: transactions.map((tx, index) => ({
             id: tx.id || tx.transactionId || tx.externalId || `${accountId || 'acc'}-${index}`,
-            accountId: tx.accountId || accountId || tx.account?.id || tx.account?.accountId || null,
+            accountId: tx.accountId || accountId || tx.account?.id || null,
             amount: Number(tx.amount ?? tx.value ?? 0),
             currencyCode: tx.currencyCode || tx.currency || 'EUR',
-            description: tx.description || tx.merchantName || tx.counterpartName || '',
-            date: tx.date || tx.bookingDate || tx.valueDate || new Date().toISOString(),
+            description: tx.description || tx.merchantName || '',
+            date: tx.date || tx.bookingDate || new Date().toISOString(),
             category: tx.category || tx.merchantCategory || 'Uncategorized',
             raw: tx
         })).filter(tx => tx.id),
