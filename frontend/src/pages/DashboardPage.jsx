@@ -9,10 +9,9 @@ import {
     Legend
 } from 'recharts';
 
-import { getBankConnectionStatus } from '../api/tinkApi';
+import { getBankConnectionStatus, syncTransactions } from '../api/tinkApi';
 import { getDashboardData } from '../api/dashboardApi';
 import { deleteTransaction } from '../api/transactionApi';
-
 import AddCashTransactionForm from '../components/AddCashTransactionForm';
 import TransactionsList from '../components/TransactionsList';
 import BudgetForm from '../components/BudgetForm';
@@ -30,6 +29,7 @@ function DashboardPage() {
     const [selectedPeriod, setSelectedPeriod] = useState('monthly');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
 
     const formatAmount = (amount) => {
         return new Intl.NumberFormat('it-IT', {
@@ -65,7 +65,7 @@ function DashboardPage() {
         }
     };
 
-    const loadDashboard = async (period = selectedPeriod) => {
+    const loadDashboard = async (period = selectedPeriod, category = selectedCategory) => {
         try {
             setLoading(true);
             setError('');
@@ -82,21 +82,22 @@ function DashboardPage() {
                 return;
             }
 
-            const data = await getDashboardData(token, period);
+            await syncTransactions(token);
+            const data = await getDashboardData(token, period, category);
+
             setDashboardData(data);
             setAllTransactions(data.periodTransactions || []);
         } catch (err) {
-            console.error('ERRORE DASHBOARD:', err);
-            setError(err.message || 'Errore nel caricamento della dashboard');
+            console.error(err);
+            setError(err.message || 'Errore dashboard');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadDashboard(selectedPeriod);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedPeriod]);
+        loadDashboard(selectedPeriod, selectedCategory);
+    }, [selectedPeriod, selectedCategory]);
 
     const handleEditTransaction = (transaction) => {
         setEditingTransaction(transaction);
@@ -120,7 +121,7 @@ function DashboardPage() {
                 setEditingTransaction(null);
             }
 
-            await loadDashboard(selectedPeriod);
+            await loadDashboard(selectedPeriod, selectedCategory);
         } catch (err) {
             console.error('ERRORE DELETE TRANSACTION:', err);
             setError(err.message || 'Errore durante l’eliminazione della transazione');
@@ -129,7 +130,7 @@ function DashboardPage() {
 
     const handleFormSuccess = async () => {
         setEditingTransaction(null);
-        await loadDashboard(selectedPeriod);
+        await loadDashboard(selectedPeriod, selectedCategory);
     };
 
     if (loading) {
@@ -152,6 +153,21 @@ function DashboardPage() {
     const categories = dashboardData?.categories || [];
     const trend = dashboardData?.trend || [];
     const topExpenses = dashboardData?.topExpenses || [];
+
+    const getPeriodLabel = (period) => {
+        switch (period) {
+            case 'daily':
+                return 'giornaliero';
+            case 'weekly':
+                return 'settimanale';
+            case 'monthly':
+                return 'mensile';
+            case 'yearly':
+                return 'annuale';
+            default:
+                return 'mensile';
+        }
+    };
 
     const forecast = {
         model: dashboardData?.forecast?.model ?? 'seasonal_weekday_trend_v2',
@@ -233,6 +249,25 @@ function DashboardPage() {
                                 <option value="yearly">Annuale</option>
                             </select>
                         </div>
+
+                        <div className="period-dropdown-wrap">
+                            <label htmlFor="category-select" className="period-label">
+                                Categoria
+                            </label>
+                            <select
+                                id="category-select"
+                                className="period-select"
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                            >
+                                <option value="all">Tutte</option>
+                                {(dashboardData?.availableCategories || []).map((cat) => (
+                                    <option key={cat} value={cat}>
+                                        {cat}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -263,26 +298,26 @@ function DashboardPage() {
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Totale uscite {formatPeriodLabel(selectedPeriod)}</p>
+                    <p className="stat-label">Totale uscite {getPeriodLabel(selectedPeriod)}</p>
                     <h2>{formatAmount(summary.totalExpenses)}</h2>
                     <p className="stat-caption">
-                        Uscite nel periodo {formatPeriodLabel(selectedPeriod)}
+                        Uscite nel periodo {getPeriodLabel(selectedPeriod)}
                     </p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Numero transazioni {formatPeriodLabel(selectedPeriod)}</p>
+                    <p className="stat-label">Numero transazioni {getPeriodLabel(selectedPeriod)}</p>
                     <h2>{summary.totalTransactions}</h2>
                     <p className="stat-caption">
-                        Transazioni registrate nel periodo {formatPeriodLabel(selectedPeriod)}
+                        Transazioni registrate nel periodo {getPeriodLabel(selectedPeriod)}
                     </p>
                 </div>
 
                 <div className="stat-card">
-                    <p className="stat-label">Saldo {formatPeriodLabel(selectedPeriod)}</p>
+                    <p className="stat-label">Saldo {getPeriodLabel(selectedPeriod)}</p>
                     <h2>{formatAmount(summary.balance)}</h2>
                     <p className="stat-caption">
-                        Saldo del periodo {formatPeriodLabel(selectedPeriod)}
+                        Saldo del periodo {getPeriodLabel(selectedPeriod)}
                     </p>
                 </div>
             </div>

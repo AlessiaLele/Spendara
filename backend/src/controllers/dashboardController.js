@@ -45,63 +45,91 @@ function getPeriodBounds(period) {
     }
 }
 
-function buildTrendData(transactions, period) {
-    const map = new Map();
+function getTrendLabels(period) {
+    switch (period) {
+        case 'daily':
+            return Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
-    const addPoint = (label, income = 0, expenses = 0) => {
-        const current = map.get(label) || { label, income: 0, expenses: 0, net: 0 };
-        current.income += income;
-        current.expenses += expenses;
-        current.net = current.income - current.expenses;
-        map.set(label, current);
-    };
+        case 'weekly':
+            return ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
-    for (const tx of transactions) {
-        const d = new Date(tx.date);
-        const amount = Number(tx.amount || 0);
+        case 'yearly':
+            return ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
 
-        if (period === 'daily') {
-            const label = `${String(d.getHours()).padStart(2, '0')}:00`;
-            if (amount >= 0) addPoint(label, amount, 0);
-            else addPoint(label, 0, Math.abs(amount));
-        } else if (period === 'weekly') {
-            const labels = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
-            const label = labels[d.getDay()];
-            if (amount >= 0) addPoint(label, amount, 0);
-            else addPoint(label, 0, Math.abs(amount));
-        } else if (period === 'yearly') {
-            const labels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-            const label = labels[d.getMonth()];
-            if (amount >= 0) addPoint(label, amount, 0);
-            else addPoint(label, 0, Math.abs(amount));
-        } else {
-            const label = String(d.getDate()).padStart(2, '0');
-            if (amount >= 0) addPoint(label, amount, 0);
-            else addPoint(label, 0, Math.abs(amount));
+        case 'monthly':
+        default: {
+            const now = new Date();
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            return Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
         }
     }
+}
 
-    return Array.from(map.values());
+function getTrendLabel(date, period) {
+    const d = new Date(date);
+
+    switch (period) {
+        case 'daily':
+            return `${String(d.getHours()).padStart(2, '0')}:00`;
+
+        case 'weekly': {
+            const labels = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+            return labels[d.getDay()];
+        }
+
+        case 'yearly': {
+            const labels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+            return labels[d.getMonth()];
+        }
+
+        case 'monthly':
+        default:
+            return String(d.getDate()).padStart(2, '0');
+    }
+}
+
+function buildTrendData(transactions, period) {
+    const labels = getTrendLabels(period);
+
+    const map = new Map(
+        labels.map((label) => [
+            label,
+            { label, income: 0, expenses: 0, net: 0 }
+        ])
+    );
+
+    for (const tx of transactions) {
+        const label = getTrendLabel(tx.date, period);
+        const point = map.get(label);
+
+        if (!point) continue;
+
+        const amount = Number(tx.amount || 0);
+
+        if (amount >= 0) {
+            point.income += amount;
+        } else {
+            point.expenses += Math.abs(amount);
+        }
+
+        point.net = point.income - point.expenses;
+    }
+
+    return labels.map((label) => map.get(label));
 }
 
 async function getDashboardData(req, res) {
     try {
         const userId = req.user._id;
         const period = req.query.period || 'monthly';
+        const categoryFilter = req.query.category || 'all';
 
         const allTransactions = await Transaction.find({
             userId,
             deletedAt: null
         }).sort({ date: -1 });
 
-        const { start, end } = getPeriodBounds(period);
-
-        const periodTransactions = allTransactions.filter((t) => {
-            const d = new Date(t.date);
-            return d >= start && d <= end;
-        });
-
-        const normalizedPeriodTransactions = periodTransactions.map((t) => {
+        const normalizedAllTransactions = allTransactions.map((t) => {
             const tx = t.toObject();
             return {
                 ...tx,
@@ -109,17 +137,32 @@ async function getDashboardData(req, res) {
             };
         });
 
-        const totalIncome = normalizedPeriodTransactions
+        const { start, end } = getPeriodBounds(period);
+
+        const selectedCategory =
+            categoryFilter && categoryFilter !== 'all'
+                ? normalizeCategory(categoryFilter)
+                : 'all';
+
+        const periodTransactions = normalizedAllTransactions.filter((t) => {
+            const d = new Date(t.date);
+            const inPeriod = d >= start && d <= end;
+            const inCategory =
+                selectedCategory === 'all' || normalizeCategory(t.category) === selectedCategory;
+
+            return inPeriod && inCategory;
+        });
+
+        const totalIncome = periodTransactions
             .filter((t) => t.amount > 0)
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-        const totalExpenses = normalizedPeriodTransactions
+        const totalExpenses = periodTransactions
             .filter((t) => t.amount < 0)
             .reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0);
 
         const categoryMap = {};
-
-        normalizedPeriodTransactions.forEach((t) => {
+        periodTransactions.forEach((t) => {
             if (t.amount < 0) {
                 const cat = t.category || 'Altro';
                 categoryMap[cat] = (categoryMap[cat] || 0) + Math.abs(Number(t.amount || 0));
@@ -131,18 +174,27 @@ async function getDashboardData(req, res) {
             value: Number(value.toFixed(2))
         }));
 
-        const topExpenses = normalizedPeriodTransactions
+        const availableCategories = Array.from(
+            new Set(
+                normalizedAllTransactions
+                    .map((t) => normalizeCategory(t.category))
+                    .filter(Boolean)
+            )
+        ).sort((a, b) => a.localeCompare(b, 'it'));
+
+        const topExpenses = periodTransactions
             .filter((t) => t.amount < 0)
             .sort((a, b) => Math.abs(Number(b.amount || 0)) - Math.abs(Number(a.amount || 0)))
             .slice(0, 5);
 
-        const trend = buildTrendData(normalizedPeriodTransactions, period);
+        const trend = buildTrendData(periodTransactions, period);
 
-        const forecast = await buildMonthlyForecast(allTransactions, userId);
+        // Forecast calcolato sull'intero set utente, non sul filtro storico.
+        const forecast = await buildMonthlyForecast(normalizedAllTransactions, userId);
 
         return res.status(200).json({
             summary: {
-                totalTransactions: normalizedPeriodTransactions.length,
+                totalTransactions: periodTransactions.length,
                 totalIncome: Number(totalIncome.toFixed(2)),
                 totalExpenses: Number(totalExpenses.toFixed(2)),
                 balance: Number((totalIncome - totalExpenses).toFixed(2))
@@ -151,7 +203,8 @@ async function getDashboardData(req, res) {
             trend,
             topExpenses,
             forecast,
-            periodTransactions: normalizedPeriodTransactions
+            periodTransactions,
+            availableCategories
         });
     } catch (err) {
         console.error('Errore getDashboardData:', err);

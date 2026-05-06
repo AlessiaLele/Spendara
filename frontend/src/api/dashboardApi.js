@@ -17,17 +17,21 @@ async function parseApiResponse(response) {
     throw new Error(text?.trim() || 'Risposta non valida dal server');
 }
 
-export async function getDashboardData(token, period = 'monthly') {
-    const query = new URLSearchParams({ period });
+export async function getDashboardData(token, period = 'monthly', category = 'all') {
+    const params = new URLSearchParams();
+    params.set('period', period);
 
-    const response = await fetch(`${API_BASE_URL}/api/dashboard?${query.toString()}`, {
-        method: 'GET',
+    if (category && category !== 'all') {
+        params.set('category', category);
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/dashboard?${params.toString()}`, {
         headers: {
             Authorization: `Bearer ${token}`
         }
     });
 
-    return parseApiResponse(response);
+    return parseApiResponse(res);
 }
 
 export default getDashboardData;

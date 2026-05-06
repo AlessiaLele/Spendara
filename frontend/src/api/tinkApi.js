@@ -7,24 +7,31 @@ async function parseApiResponse(response) {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || 'Errore API');
+            throw new Error(data.message || 'Errore Tink');
         }
 
         return data;
     }
 
     const text = await response.text();
+    throw new Error(text?.trim() || 'Risposta non valida dal server');
+}
 
-    if (!response.ok) {
-        throw new Error(
-            text?.trim() ||
-            'Il server ha risposto con un formato non valido'
-        );
+export async function syncTransactions(token, accountId = '') {
+    const params = new URLSearchParams();
+
+    if (accountId) {
+        params.set('accountId', accountId);
     }
 
-    throw new Error(
-        'Il server ha restituito una risposta non JSON. Controlla URL backend, route API e configurazione deploy.'
-    );
+    const res = await fetch(`${API_BASE_URL}/api/tink/sync${params.toString() ? `?${params.toString()}` : ''}`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    return parseApiResponse(res);
 }
 
 export async function startBankConnection(token) {
