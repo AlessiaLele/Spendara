@@ -118,6 +118,15 @@ function buildTrendData(transactions, period) {
     return labels.map((label) => map.get(label));
 }
 
+function toRomeDayKey(date) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Rome',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(new Date(date));
+}
+
 async function getDashboardData(req, res) {
     try {
         const userId = req.user._id;
@@ -144,11 +153,18 @@ async function getDashboardData(req, res) {
                 ? normalizeCategory(categoryFilter)
                 : 'all';
 
+        const todayKey = toRomeDayKey(new Date());
+
         const periodTransactions = normalizedAllTransactions.filter((t) => {
-            const d = new Date(t.date);
-            const inPeriod = d >= start && d <= end;
             const inCategory =
                 selectedCategory === 'all' || normalizeCategory(t.category) === selectedCategory;
+
+            if (period === 'daily') {
+                return toRomeDayKey(t.date) === todayKey && inCategory;
+            }
+
+            const d = new Date(t.date);
+            const inPeriod = d >= start && d <= end;
 
             return inPeriod && inCategory;
         });

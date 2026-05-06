@@ -10,7 +10,7 @@ const tinkRoutes = require('./src/routes/tinkRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 const transactionRoutes = require('./src/routes/transactionRoutes');
 const budgetRoutes = require('./src/routes/budgetRoutes.js');
-const { startDailyTransactionsJob } = require('./src/jobs/dailyTransactionsJob');
+const { startDailyTransactionsJob, runDailyTransactionsJob } = require('./src/jobs/dailyTransactionsJob');
 
 const app = express();
 
@@ -29,9 +29,10 @@ app.use('/api/budgets', budgetRoutes);
 
 mongoose
     .connect(process.env.MONGO_URI)
-    .then(() => {
+    .then(async () => {
         console.log('MongoDB connesso');
-        startDailyTransactionsJob();
+        await startDailyTransactionsJob();
+        runDailyTransactionsJob()
         app.listen(process.env.PORT, () => {
             console.log(`Server avviato sulla porta ${process.env.PORT}`);
         });
