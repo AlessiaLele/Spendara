@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     completeBankCallback,
     disconnectBankConnection,
     getBankAccounts,
     getBankConnectionStatus,
-    getBankTransactions,
     startBankConnection,
     syncBankTransactions
 } from '../api/tinkApi';
+
+import '../styles/ConnectBank.css';
 
 function getAuthToken() {
     const keys = ['token', 'authToken', 'accessToken', 'userToken'];
@@ -37,6 +39,7 @@ function formatAmount(value, currency = 'EUR') {
 }
 
 export default function ConnectBankPage() {
+    const navigate = useNavigate();
     const token = useMemo(() => getAuthToken(), []);
     const demoMode = String(import.meta.env.VITE_TINK_USE_MOCK_DATA || '').toLowerCase() === 'true';
 
@@ -44,15 +47,12 @@ export default function ConnectBankPage() {
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState(null);
     const [accounts, setAccounts] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [selectedAccountId, setSelectedAccountId] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
     async function loadStatus() {
         if (!token) {
             setError('Token utente mancante. Effettua il login.');
-            setLoading(false);
             return;
         }
 
@@ -75,29 +75,16 @@ export default function ConnectBankPage() {
         }
     }
 
-    async function loadTransactions(accountId = '') {
-        if (!token) return;
-
-        try {
-            const data = await getBankTransactions(token, accountId);
-            setTransactions(Array.isArray(data) ? data : []);
-        } catch (err) {
-            setError(err.message || 'Errore nel caricamento transazioni');
-        }
-    }
-
     async function refreshAll() {
         setError('');
         setMessage('');
         setLoading(true);
 
-        await loadStatus();
-        await loadAccounts();
-
-        const nextAccountId = selectedAccountId || '';
-        await loadTransactions(nextAccountId);
-
-        setLoading(false);
+        try {
+            await Promise.all([loadStatus(), loadAccounts()]);
+        } finally {
+            setLoading(false);
+        }
     }
 
     useEffect(() => {
@@ -139,7 +126,7 @@ export default function ConnectBankPage() {
 
     async function handleConnect() {
         if (!token) {
-            setError('Token utente mancante. Effettua il login.');
+            navigate('/login');
             return;
         }
 
@@ -170,7 +157,6 @@ export default function ConnectBankPage() {
             setMessage('Sincronizzazione in corso...');
 
             await syncBankTransactions(token, accountId);
-
             await refreshAll();
             setMessage('Sincronizzazione completata con successo.');
         } catch (err) {
@@ -192,8 +178,6 @@ export default function ConnectBankPage() {
 
             setStatus(null);
             setAccounts([]);
-            setTransactions([]);
-            setSelectedAccountId('');
             setMessage('Connessione bancaria rimossa.');
         } catch (err) {
             setError(err.message || 'Errore durante la disconnessione');
@@ -202,206 +186,134 @@ export default function ConnectBankPage() {
         }
     }
 
-    async function handleAccountChange(e) {
-        const value = e.target.value;
-        setSelectedAccountId(value);
-        await loadTransactions(value);
-    }
-
     const isConnected = status?.status === 'connected';
+    const lastSyncLabel = status?.lastSyncAt ? formatDate(status.lastSyncAt) : 'Mai';
+    const accountCount = accounts.length;
 
     return (
-        <div className="mx-auto max-w-6xl p-6">
-            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold">Collegamento banca</h1>
-                    <p className="text-sm text-gray-500">
-                        Gestisci il collegamento Tink, i conti associati e la sincronizzazione delle transazioni.
-                    </p>
+        <div className="connect-bank-page">
+            <div className="connect-bank-card">
+                <div className="connect-bank-topbar">
+                   <span className="connect-bank-badge">
+                        Connessione bancaria
+                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={handleConnect}
-                        disabled={busy}
-                        className="rounded-xl bg-black px-4 py-2 text-white disabled:opacity-50"
-                    >
-                        Collega banca
-                    </button>
-                    <button
-                        onClick={() => handleSync(selectedAccountId)}
-                        disabled={busy || !isConnected}
-                        className="rounded-xl border px-4 py-2 disabled:opacity-50"
-                    >
-                        Sincronizza
-                    </button>
-                    <button
-                        onClick={handleDisconnect}
-                        disabled={busy || !isConnected}
-                        className="rounded-xl border px-4 py-2 disabled:opacity-50"
-                    >
-                        Scollega
-                    </button>
-                </div>
-            </div>
-
-            {demoMode && (
-                <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                    Modalità demo attiva: le transazioni mock vengono generate solo se <code>TINK_USE_MOCK_DATA=true</code>.
-                </div>
-            )}
-
-            {message && (
-                <div className="mb-4 rounded-xl border border-green-300 bg-green-50 p-3 text-sm text-green-900">
-                    {message}
-                </div>
-            )}
-
-            {error && (
-                <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-900">
-                    {error}
-                </div>
-            )}
-
-            <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">Stato connessione</div>
-                    <div className="mt-1 text-lg font-semibold">
-                        {isConnected ? 'Connesso' : 'Non connesso'}
-                    </div>
-                    <div className="mt-2 text-sm text-gray-600">
-                        Ultimo sync: {formatDate(status?.lastSyncAt)}
-                    </div>
-                    <div className="mt-1 text-sm text-gray-600">
-                        Errore ultimo sync: {status?.lastSyncError || '-'}
-                    </div>
-                </div>
-
-                <div className="rounded-2xl border p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">Conti collegati</div>
-                    <div className="mt-1 text-lg font-semibold">{accounts.length}</div>
-                    <div className="mt-2 text-sm text-gray-600">
-                        {accounts.length
-                            ? 'Puoi sincronizzare il singolo conto o tutti i conti insieme.'
-                            : 'Nessun conto disponibile.'}
-                    </div>
-                </div>
-
-                <div className="rounded-2xl border p-4 shadow-sm">
-                    <div className="text-sm text-gray-500">Transazioni caricate</div>
-                    <div className="mt-1 text-lg font-semibold">{transactions.length}</div>
-                    <div className="mt-2 text-sm text-gray-600">
-                        Mostrate in base al conto selezionato.
-                    </div>
-                </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border p-4 shadow-sm">
-                <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold">Conti bancari</h2>
-                        <p className="text-sm text-gray-500">Seleziona un conto per filtrare le transazioni.</p>
+                <div className="connect-bank-hero">
+                    <div className="connect-bank-hero-copy">
+                        <h1 className="connect-bank-title">
+                            Un punto unico per la tua banca
+                            <span>Collega, controlla e passa alla dashboard in un clic</span>
+                        </h1>
+                        <p className="connect-bank-subtitle">
+                            Questa schermata serve solo per gestire il collegamento bancario e la sincronizzazione.
+                            Tutti i dettagli operativi e finanziari restano nella dashboard.
+                        </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-600">Conto:</label>
-                        <select
-                            value={selectedAccountId}
-                            onChange={handleAccountChange}
-                            className="rounded-xl border px-3 py-2"
-                            disabled={!accounts.length}
-                        >
-                            <option value="">Tutti i conti</option>
-                            {accounts.map((account) => (
-                                <option key={account.id} value={account.id}>
-                                    {account.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                {loading ? (
-                    <div className="text-sm text-gray-500">Caricamento...</div>
-                ) : accounts.length ? (
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {accounts.map((account) => (
-                            <div key={account.id} className="rounded-xl border p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <div className="font-semibold">{account.name}</div>
-                                        <div className="text-sm text-gray-500">{account.id}</div>
-                                    </div>
-                                    <div className="text-right text-sm font-medium">
-                                        {formatAmount(account.balance, account.currencyCode)}
-                                    </div>
-                                </div>
-                                <div className="mt-4 flex gap-2">
-                                    <button
-                                        onClick={() => handleSync(account.id)}
-                                        disabled={busy}
-                                        className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
-                                    >
-                                        Sync conto
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedAccountId(account.id);
-                                            loadTransactions(account.id);
-                                        }}
-                                        className="rounded-lg border px-3 py-2 text-sm"
-                                    >
-                                        Vedi transazioni
-                                    </button>
-                                </div>
+                    <div className="connect-bank-hero-panel">
+                        <div className="connect-bank-status-pill">
+                            {loading ? 'Caricamento stato...' : isConnected ? 'Banca connessa' : 'Nessuna connessione attiva'}
+                        </div>
+                        <div className="connect-bank-hero-row">
+                            <div>
+                                <div className="connect-bank-hero-label">Ultima sincronizzazione</div>
+                                <div className="connect-bank-hero-value">{lastSyncLabel}</div>
                             </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-sm text-gray-500">Nessun conto collegato.</div>
-                )}
-            </div>
-
-            <div className="mt-6 rounded-2xl border p-4 shadow-sm">
-                <div className="mb-4 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold">Transazioni bancarie</h2>
-                        <p className="text-sm text-gray-500">
-                            {selectedAccountId ? 'Vista filtrata sul conto selezionato.' : 'Vista aggregata su tutti i conti.'}
+                        </div>
+                        <p className="connect-bank-hero-note">
+                            {isConnected
+                                ? 'La connessione è attiva. Puoi sincronizzare ora oppure aprire la dashboard per analisi, grafici e transazioni.'
+                                : 'Avvia il collegamento e poi usa la dashboard come centro unico per le informazioni dettagliate.'}
                         </p>
                     </div>
                 </div>
 
-                {transactions.length ? (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full border-collapse text-sm">
-                            <thead>
-                            <tr className="border-b text-left text-gray-500">
-                                <th className="py-2 pr-3">Data</th>
-                                <th className="py-2 pr-3">Descrizione</th>
-                                <th className="py-2 pr-3">Categoria</th>
-                                <th className="py-2 pr-3">Conto</th>
-                                <th className="py-2 pr-3 text-right">Importo</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {transactions.map((tx) => (
-                                <tr key={tx._id || tx.externalTransactionId || tx.id} className="border-b last:border-b-0">
-                                    <td className="py-2 pr-3">{formatDate(tx.date)}</td>
-                                    <td className="py-2 pr-3">{tx.description || '-'}</td>
-                                    <td className="py-2 pr-3">{tx.category || '-'}</td>
-                                    <td className="py-2 pr-3">{tx.accountName || tx.accountId || '-'}</td>
-                                    <td className="py-2 pr-3 text-right">
-                                        {formatAmount(tx.amount, tx.currencyCode)}
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+                <div className="connect-bank-actions">
+                    <button
+                        onClick={
+                            isConnected
+                                ? () => navigate('/dashboard')
+                                : handleConnect
+                        }
+                        disabled={busy}
+                        className="connect-bank-primary-btn"
+                    >
+                        {isConnected ? 'Vai alla dashboard' : 'Collega banca'}
+                    </button>
+                    <button
+                        onClick={() => handleSync()}
+                        disabled={busy || !isConnected}
+                        className="connect-bank-secondary-btn"
+                    >
+                        Sincronizza ora
+                    </button>
+                    <button
+                        onClick={handleDisconnect}
+                        disabled={busy || !isConnected}
+                        className="connect-bank-secondary-btn"
+                    >
+                        Scollega
+                    </button>
+                </div>
+
+                <div className="connect-bank-info-grid">
+                    <div className="connect-bank-info-card">
+                        <h3>1. Collega il conto</h3>
+                        <p>Avvia il flusso Tink e autorizza l’accesso al tuo istituto bancario.</p>
                     </div>
-                ) : (
-                    <div className="text-sm text-gray-500">Nessuna transazione disponibile.</div>
+                    <div className="connect-bank-info-card">
+                        <h3>2. Sincronizza i dati</h3>
+                        <p>Aggiorna lo stato della connessione e mantieni i conti allineati.</p>
+                    </div>
+                    <div className="connect-bank-info-card">
+                        <h3>3. Apri la dashboard</h3>
+                        <p>Vai alla dashboard per analisi complete, movimenti e lettura dei dettagli.</p>
+                    </div>
+                </div>
+
+                {demoMode && (
+                    <div className="connect-bank-banner connect-bank-banner-demo">
+                        Modalità demo attiva: le transazioni mock vengono generate solo se{' '}
+                        <code>TINK_USE_MOCK_DATA=true</code>.
+                    </div>
                 )}
+
+                {message && <div className="connect-bank-banner connect-bank-banner-success">{message}</div>}
+
+                {error && <div className="connect-bank-banner connect-bank-banner-error">{error}</div>}
+
+                <div className="connect-bank-stats-grid">
+                    <div className="connect-bank-stat-card">
+                        <div className="connect-bank-stat-label">
+                            Stato connessione
+                        </div>
+
+                        <div className="connect-bank-stat-value">
+                            {isConnected ? 'Connesso' : 'Non connesso'}
+                        </div>
+
+                        <div className="connect-bank-stat-meta">
+                            Ultimo sync: {lastSyncLabel}
+                        </div>
+                    </div>
+
+                    <div className="connect-bank-stat-card">
+                        <div className="connect-bank-stat-label">
+                            Conti collegati
+                        </div>
+
+                        <div className="connect-bank-stat-value">
+                            {accountCount}
+                        </div>
+
+                        <div className="connect-bank-stat-meta">
+                            {accountCount === 1
+                                ? '1 conto connesso'
+                                : `${accountCount} conti connessi`}
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
