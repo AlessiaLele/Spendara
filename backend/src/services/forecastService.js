@@ -196,7 +196,7 @@ function detectRecurringTransactions(allTransactions, now, monthEnd) {
  * Mappa giornaliera delle uscite.
  * Inserisce anche i giorni senza spese come 0.
  */
-function buildDailyExpenseMap(transactions, startDate, endDate) {
+function buildDailyExpenseMap(transactions, startDate, endDate, now) {
     const map = {};
     let cursor = startOfDay(startDate);
     const safeEnd = endOfDay(endDate);
@@ -213,7 +213,10 @@ function buildDailyExpenseMap(transactions, startDate, endDate) {
         const key = startOfDay(txDate).toISOString().slice(0, 10);
 
         if (map[key] !== undefined) {
-            map[key] += Math.abs(tx.amount);
+            const daysAgo = diffInDays(now, txDate);
+            const decay = exponentialDecay(daysAgo);
+
+            map[key] += Math.abs(tx.amount) * decay;
         }
     }
 
@@ -277,21 +280,21 @@ function getTrendFactorFromDailyMap(dailyMap) {
         .sort((a, b) => new Date(a[0]) - new Date(b[0]))
         .map(([, amount]) => amount);
 
-    if (ordered.length < 56) {
+    if (ordered.length < 42) {
         return 1;
     }
 
-    const recent = ordered.slice(-28);
-    const previous = ordered.slice(-56, -28);
+    const recent = ordered.slice(-21);
+    const previous = ordered.slice(-42, -21);
 
-    const recentAvg = average(recent);
-    const previousAvg = average(previous);
+    const recentWeighted = weightedAverage(recent);
+    const previousWeighted = weightedAverage(previous);
 
-    if (previousAvg <= 0) {
+    if (previousWeighted <= 0) {
         return 1;
     }
 
-    return clamp(recentAvg / previousAvg, 0.8, 1.2);
+    return clamp(recentWeighted / previousWeighted, 0.75, 1.25);
 }
 
 /**
@@ -328,7 +331,7 @@ function buildFutureVariableExpenseForecast({
         };
     }
 
-    const dailyMap = buildDailyExpenseMap(historyTransactions, historyStart, now);
+    const dailyMap = buildDailyExpenseMap(historyTransactions, historyStart, now, now);
     const weekdayProfiles = getWeekdayProfiles(dailyMap);
     const globalDailyAverage = average(Object.values(dailyMap));
     const trendFactor = getTrendFactorFromDailyMap(dailyMap);
@@ -341,7 +344,14 @@ function buildFutureVariableExpenseForecast({
     while (cursor <= endOfDay(monthEnd)) {
         const weekday = cursor.getDay();
         const weekdayAvg = weekdayProfiles[weekday]?.average ?? 0;
-        const base = weekdayAvg > 0 ? weekdayAvg : globalDailyAverage;
+        const weekdayMedian = weekdayProfiles[weekday]?.median ?? 0;
+
+        const blendedWeekdayValue =
+            weekdayAvg > 0
+                ? (weekdayAvg * 0.7) + (weekdayMedian * 0.3)
+                : globalDailyAverage;
+
+        const base = blendedWeekdayValue;
         const predicted = Number((base * trendFactor).toFixed(2));
 
         dailyPredictions.push({
@@ -619,8 +629,72 @@ function calculateBacktestMetrics(allTransactions) {
     };
 }
 
+function weightedAverage(values) {
+    if (!values.length) return 0;
+
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    values.forEach((value, index) => {
+        const weight = index + 1;
+        weightedSum += value * weight;
+        totalWeight += weight;
+    });
+
+    return weightedSum / totalWeight;
+}
+
+function exponentialDecay(daysAgo, lambda = 0.015) {
+    return Math.exp(-lambda * daysAgo);
+}
+
+function calculateForecastScore({
+                                    historyWindowDays,
+                                    activeExpenseDays,
+                                    recurringCount,
+                                    weekdayProfiles,
+                                    mape
+                                }) {
+    let score = 0;
+
+    score += Math.min(historyWindowDays / 90, 1) * 30;
+    score += Math.min(activeExpenseDays / 30, 1) * 25;
+    score += Math.min(recurringCount / 5, 1) * 20;
+
+    const populatedWeekdays = Object.values(weekdayProfiles).filter(
+        p => p.samples >= 6
+    ).length;
+
+    score += (populatedWeekdays / 7) * 15;
+
+    const accuracyPenalty = Math.min(mape / 50, 1) * 10;
+
+    score -= accuracyPenalty;
+
+    return clamp(Math.round(score), 0, 100);
+}
+
+function naiveForecast(dailyMap, remainingDays) {
+    const values = Object.values(dailyMap);
+
+    if (!values.length) return 0;
+
+    const avg = average(values);
+
+    return avg * remainingDays;
+}
+
+function isAnomalousExpense(amount, values) {
+    const avg = average(values);
+    const sd = stdDev(values);
+
+    return amount > avg + (3 * sd);
+}
+
 async function buildMonthlyForecast(allTransactions, userId) {
+    const User = require("../models/User");
     const now = new Date();
+    const user = await User.findById(userId).lean();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
@@ -639,6 +713,48 @@ async function buildMonthlyForecast(allTransactions, userId) {
 
     const currentBalance = Number((currentIncome - currentExpenses).toFixed(2));
 
+    let scheduledSalaryIncome = 0;
+    let scheduledSalaryItem = null;
+
+    if (user?.salaryAmount > 0) {
+        const salaryDay = user.salaryDay || 10;
+
+        const salaryDate = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            salaryDay,
+            12, 0, 0, 0
+        );
+
+        const alreadyReceivedSalary = currentMonthTransactions.some(tx => {
+            if (tx.amount <= 0) return false;
+
+            const txDate = new Date(tx.date);
+
+            const sameDay =
+                txDate.getDate() === salaryDay;
+
+            const similarAmount =
+                Math.abs(tx.amount - user.salaryAmount) <= 5;
+
+            return sameDay && similarAmount;
+        });
+
+        if (
+            now < salaryDate &&
+            !alreadyReceivedSalary
+        ) {
+            scheduledSalaryIncome = user.salaryAmount;
+
+            scheduledSalaryItem = {
+                description: 'Stipendio programmato',
+                category: 'income',
+                amount: user.salaryAmount,
+                predictedDate: salaryDate.toISOString()
+            };
+        }
+    }
+
     const recurringSeries = detectRecurringTransactions(allTransactions, now, monthEnd);
 
     const remainingRecurringIncomeItems = recurringSeries
@@ -650,6 +766,10 @@ async function buildMonthlyForecast(allTransactions, userId) {
             predictedDate: new Date(item.predictedNextDate).toISOString()
         }));
 
+    if (scheduledSalaryItem) {
+        remainingRecurringIncomeItems.push(scheduledSalaryItem);
+    }
+
     const remainingRecurringExpenseItems = recurringSeries
         .filter(item => item.direction === 'expense' && item.isFutureInCurrentMonth)
         .map(item => ({
@@ -659,8 +779,14 @@ async function buildMonthlyForecast(allTransactions, userId) {
             predictedDate: new Date(item.predictedNextDate).toISOString()
         }));
 
+    const recurringIncomeTotal =
+        remainingRecurringIncomeItems.reduce(
+            (sum, item) => sum + item.amount,
+            0
+        );
+
     const remainingRecurringIncome = Number(
-        remainingRecurringIncomeItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2)
+        (recurringIncomeTotal + scheduledSalaryIncome).toFixed(2)
     );
 
     const remainingRecurringExpenses = Number(
@@ -690,15 +816,17 @@ async function buildMonthlyForecast(allTransactions, userId) {
 
     const daysRemaining = variableForecast.dailyPredictions.length;
 
+    const naiveProjectedExpenses = naiveForecast(
+        variableForecast.dailyMap,
+        daysRemaining
+    );
+
     const predictedEndBalance = Number((
         currentBalance +
         remainingRecurringIncome -
         remainingRecurringExpenses -
         variableForecast.projectedVariableExpenses
     ).toFixed(2));
-
-    const nowMonth = now.getMonth();
-    const nowYear = now.getFullYear();
 
     let budgetAnalysis = null;
     let categoryBudgetAnalysis = [];
@@ -747,8 +875,16 @@ async function buildMonthlyForecast(allTransactions, userId) {
 
     const backtest = calculateBacktestMetrics(allTransactions);
 
+    const forecastScore = calculateForecastScore({
+        historyWindowDays: variableForecast.historyWindowDays,
+        activeExpenseDays: variableForecast.activeExpenseDays,
+        recurringCount: recurringSeries.length,
+        weekdayProfiles: variableForecast.weekdayProfiles,
+        mape: backtest.mape
+    });
+
     return {
-        model: 'seasonal_weekday_trend_v2',
+        model: 'Hybrid Seasonal Financial Forecaster',
         currentBalance,
         remainingRecurringIncome,
         remainingRecurringExpenses,
@@ -765,6 +901,8 @@ async function buildMonthlyForecast(allTransactions, userId) {
                 remainingRecurringIncomeItems.length + remainingRecurringExpenseItems.length,
             weekdayProfiles: variableForecast.weekdayProfiles
         }),
+
+        forecastScore,
 
         recurringSummary: {
             detectedSeries: recurringSeries.length,
@@ -784,6 +922,27 @@ async function buildMonthlyForecast(allTransactions, userId) {
             trendFactor: variableForecast.trendFactor,
             weekdayProfiles: variableForecast.weekdayProfiles,
             dailyPredictions: variableForecast.dailyPredictions
+        },
+
+        baselineComparison: {
+            naiveProjectedExpenses: Number(naiveProjectedExpenses.toFixed(2)),
+            advancedProjectedExpenses: variableForecast.projectedVariableExpenses,
+            improvement:
+                naiveProjectedExpenses > 0
+                    ? Number((
+                        (
+                            naiveProjectedExpenses -
+                            variableForecast.projectedVariableExpenses
+                        ) / naiveProjectedExpenses
+                    ).toFixed(3))
+                    : 0
+        },
+
+        explainability: {
+            recurringImpact: remainingRecurringExpenses,
+            variableImpact: variableForecast.projectedVariableExpenses,
+            trendFactor: variableForecast.trendFactor,
+            strongestCategories: categoryForecast.slice(0, 3)
         },
 
         categoryForecast,

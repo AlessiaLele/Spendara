@@ -20,6 +20,15 @@ const userSchema = new mongoose.Schema(
         lastSimulatedBatchDate: {
             type: Date,
             default: null
+        },
+        salaryAmount: {
+            type: Number,
+            default: 0
+        },
+
+        salaryDay: {
+            type: Number,
+            default: 10
         }
     },
     { timestamps: true }

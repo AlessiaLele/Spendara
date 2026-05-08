@@ -170,7 +170,6 @@ function DashboardPage() {
     };
 
     const forecast = {
-        model: dashboardData?.forecast?.model ?? 'seasonal_weekday_trend_v2',
         currentBalance: dashboardData?.forecast?.currentBalance ?? 0,
         remainingRecurringIncome: dashboardData?.forecast?.remainingRecurringIncome ?? 0,
         remainingRecurringExpenses: dashboardData?.forecast?.remainingRecurringExpenses ?? 0,
@@ -324,8 +323,16 @@ function DashboardPage() {
 
             <div className="dashboard-card forecast-card">
                 <div className="card-header">
-                    <h3>Motore previsionale</h3>
-                    <span>{forecast.model}</span>
+                    <div>
+                        <h3>Motore previsionale</h3>
+                        <p className="forecast-subtitle">
+                            Stime basate sulle tue abitudini di spesa recenti
+                        </p>
+                    </div>
+
+                    <span className={`forecast-badge ${forecast.confidence}`}>
+                         Affidabilità {getConfidenceLabel(forecast.confidence)}
+                    </span>
                 </div>
 
                 <div className="category-list">
@@ -358,23 +365,23 @@ function DashboardPage() {
 
                     <div className="category-item">
                         <div className="category-top">
-                            <span>Media uscite variabili giornaliere</span>
+                            <span>Media spese giornaliere</span>
                             <span>{formatAmount(forecast.averageDailyVariableExpenses)}</span>
                         </div>
+
                         <div className="progress-meta">
-                            <span>Giorni con uscite nello storico: {forecast.activeExpenseDays}</span>
-                            <span>Trend: {forecast.variableModel.trendFactor}x</span>
+                            <span>Calcolata sulle spese recenti</span>
                         </div>
                     </div>
 
                     <div className="category-item">
                         <div className="category-top">
-                            <span>Uscite variabili stimate rimanenti</span>
+                            <span>Spese stimate fino a fine mese</span>
                             <span>{formatAmount(forecast.projectedVariableExpenses)}</span>
                         </div>
+
                         <div className="progress-meta">
-                            <span>Finestra storica: {forecast.variableModel.historyWindowDays} giorni</span>
-                            <span>Orizzonte previsione: {forecast.daysRemaining} giorni</span>
+                            <span>Mancano {forecast.daysRemaining} giorni alla fine del mese</span>
                         </div>
                     </div>
 
@@ -384,8 +391,9 @@ function DashboardPage() {
                             <span>{formatAmount(forecast.predictedEndBalance)}</span>
                         </div>
                         <div className="progress-meta">
-                            <span>Affidabilità: {getConfidenceLabel(forecast.confidence)}</span>
-                            <span>Serie ricorrenti rilevate: {forecast.recurringSummary.detectedSeries}</span>
+                            <span>
+                                  Basata su entrate, uscite ricorrenti e storico transazioni
+                            </span>
                         </div>
                     </div>
                 </div>
