@@ -181,6 +181,12 @@ function DashboardPage() {
         daysRemaining: dashboardData?.forecast?.daysRemaining ?? 0,
         activeExpenseDays: dashboardData?.forecast?.activeExpenseDays ?? 0,
         confidence: dashboardData?.forecast?.confidence ?? 'bassa',
+        model: dashboardData?.forecast?.model ?? 'Hybrid Seasonal Financial Forecaster',
+        forecastScore: dashboardData?.forecast?.forecastScore ?? 0,
+        baselineComparison: dashboardData?.forecast?.baselineComparison ?? null,
+        explainability: dashboardData?.forecast?.explainability ?? null,
+        budgetAnalysis: dashboardData?.forecast?.budgetAnalysis ?? null,
+        categoryBudgetAnalysis: dashboardData?.forecast?.categoryBudgetAnalysis ?? [],
         recurringSummary: {
             detectedSeries:
                 dashboardData?.forecast?.recurringSummary?.detectedSeries ?? 0,
@@ -319,6 +325,77 @@ function DashboardPage() {
                         Saldo del periodo {getPeriodLabel(selectedPeriod)}
                     </p>
                 </div>
+            </div>
+
+            {forecast.budgetAnalysis && (
+                <div className="dashboard-card budget-card">
+                    <div className="card-header">
+                        <div>
+                            <h3>Budget mensile</h3>
+                            <p className="forecast-subtitle">
+                                Controllo spesa rispetto al limite impostato
+                            </p>
+                        </div>
+
+                        <span className={`forecast-badge ${forecast.budgetAnalysis.status}`}>
+                            {forecast.budgetAnalysis.status === 'over'
+                                ? 'Superato'
+                                : forecast.budgetAnalysis.status === 'critical'
+                                    ? 'Critico'
+                                    : forecast.budgetAnalysis.status === 'warning'
+                                        ? 'Attenzione'
+                                        : 'Ok'}
+                        </span>
+                    </div>
+
+                    <div className="stats-grid" style={{ marginBottom: 0 }}>
+                        <div className="stat-card">
+                            <p className="stat-label">Budget totale</p>
+                            <h2>{formatAmount(forecast.budgetAnalysis.totalBudget)}</h2>
+                        </div>
+
+                        <div className="stat-card">
+                            <p className="stat-label">Speso finora</p>
+                            <h2>{formatAmount(forecast.budgetAnalysis.spent)}</h2>
+                        </div>
+
+                        <div className="stat-card">
+                            <p className="stat-label">Residuo</p>
+                            <h2>{formatAmount(forecast.budgetAnalysis.remaining)}</h2>
+                        </div>
+
+                        <div className="stat-card">
+                            <p className="stat-label">Previsto a fine mese</p>
+                            <h2>{formatAmount(forecast.budgetAnalysis.projectedTotalExpenses)}</h2>
+                        </div>
+                    </div>
+
+                    <div className="progress-bar" style={{ marginTop: 16 }}>
+                        <div
+                            className="progress-fill"
+                            style={{
+                                width: `${Math.min(forecast.budgetAnalysis.projectedUtilizationPct ?? 0, 100)}%`
+                            }}
+                        />
+                    </div>
+
+                    <p className="stat-caption" style={{ marginTop: 10 }}>
+                        Utilizzo previsto: {forecast.budgetAnalysis.projectedUtilizationPct ?? 0}% ·
+                        Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
+                    </p>
+                </div>
+            )}
+
+            <div className="dashboard-card form-card">
+                <div className="card-header">
+                    <h3>Imposta budget</h3>
+                    <span>Definisci il limite mensile e le soglie</span>
+                </div>
+
+                <BudgetForm
+                    onBudgetSaved={() => loadDashboard(selectedPeriod, selectedCategory)}
+                    availableCategories={dashboardData?.availableCategories || []}
+                />
             </div>
 
             <div className="dashboard-card forecast-card">

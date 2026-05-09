@@ -1,6 +1,7 @@
 const { normalizeCategory } = require('../utils/normalizeCategory');
 const Budget = require("../models/Budget");
 const { evaluateMonthlyBudget, evaluateCategoryBudgets } = require("./budgetService");
+const User = require("../models/User");
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -692,9 +693,9 @@ function isAnomalousExpense(amount, values) {
 }
 
 async function buildMonthlyForecast(allTransactions, userId) {
-    const User = require("../models/User");
     const now = new Date();
     const user = await User.findById(userId).lean();
+
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
@@ -713,7 +714,6 @@ async function buildMonthlyForecast(allTransactions, userId) {
 
     const currentBalance = Number((currentIncome - currentExpenses).toFixed(2));
 
-    let scheduledSalaryIncome = 0;
     let scheduledSalaryItem = null;
 
     if (user?.salaryAmount > 0) {
@@ -731,21 +731,13 @@ async function buildMonthlyForecast(allTransactions, userId) {
 
             const txDate = new Date(tx.date);
 
-            const sameDay =
-                txDate.getDate() === salaryDay;
-
-            const similarAmount =
-                Math.abs(tx.amount - user.salaryAmount) <= 5;
+            const sameDay = txDate.getDate() === salaryDay;
+            const similarAmount = Math.abs(tx.amount - user.salaryAmount) <= 5;
 
             return sameDay && similarAmount;
         });
 
-        if (
-            now < salaryDate &&
-            !alreadyReceivedSalary
-        ) {
-            scheduledSalaryIncome = user.salaryAmount;
-
+        if (now < salaryDate && !alreadyReceivedSalary) {
             scheduledSalaryItem = {
                 description: 'Stipendio programmato',
                 category: 'income',
@@ -779,14 +771,8 @@ async function buildMonthlyForecast(allTransactions, userId) {
             predictedDate: new Date(item.predictedNextDate).toISOString()
         }));
 
-    const recurringIncomeTotal =
-        remainingRecurringIncomeItems.reduce(
-            (sum, item) => sum + item.amount,
-            0
-        );
-
     const remainingRecurringIncome = Number(
-        (recurringIncomeTotal + scheduledSalaryIncome).toFixed(2)
+        remainingRecurringIncomeItems.reduce((sum, item) => sum + item.amount, 0).toFixed(2)
     );
 
     const remainingRecurringExpenses = Number(
@@ -860,13 +846,58 @@ async function buildMonthlyForecast(allTransactions, userId) {
                     remainingRecurringExpenses +
                     variableForecast.projectedVariableExpenses;
 
-                budgetAnalysis = evaluateMonthlyBudget({
-                    budget: budgetDoc.totalBudget ?? budgetDoc.monthlyLimit ?? 0,
-                    currentExpenses,
-                    daysElapsed,
-                    daysInMonth,
-                    projectedTotalExpenses: totalProjectedExpenses,
-                });
+                const budgetTotal = budgetDoc?.totalBudget ?? 0;
+
+                const budgetUtilizationPct = budgetTotal > 0
+                    ? Number(((currentExpenses / budgetTotal) * 100).toFixed(1))
+                    : null;
+
+                const projectedBudgetUtilizationPct = budgetTotal > 0
+                    ? Number(((totalProjectedExpenses / budgetTotal) * 100).toFixed(1))
+                    : null;
+
+                const budgetStatus =
+                    budgetTotal <= 0
+                        ? 'none'
+                        : totalProjectedExpenses >= budgetTotal
+                            ? 'over'
+                            : totalProjectedExpenses >= budgetTotal * (budgetDoc?.criticalThreshold ?? 0.95)
+                                ? 'critical'
+                                : totalProjectedExpenses >= budgetTotal * (budgetDoc?.warningThreshold ?? 0.8)
+                                    ? 'warning'
+                                    : 'ok';
+
+                budgetAnalysis = {
+                    totalBudget: budgetTotal,
+                    spent: Number(currentExpenses.toFixed(2)),
+                    remaining: Number(
+                        Math.max(budgetTotal - currentExpenses, 0).toFixed(2)
+                    ),
+                    projectedTotalExpenses: Number(
+                        totalProjectedExpenses.toFixed(2)
+                    ),
+                    variance: Number(
+                        (totalProjectedExpenses - budgetTotal).toFixed(2)
+                    ),
+                    variancePct: budgetTotal > 0
+                        ? Number(
+                            (((totalProjectedExpenses - budgetTotal) / budgetTotal) * 100).toFixed(1)
+                        )
+                        : null,
+                    exceeded: budgetTotal > 0 ? totalProjectedExpenses > budgetTotal : false,
+                    warningThreshold: budgetDoc?.warningThreshold ?? 0.8,
+                    criticalThreshold: budgetDoc?.criticalThreshold ?? 0.95,
+                    status: budgetStatus,
+                    utilizationPct: budgetUtilizationPct,
+                    projectedUtilizationPct: projectedBudgetUtilizationPct,
+                    monthlyEvaluation: evaluateMonthlyBudget({
+                        budget: budgetTotal,
+                        currentExpenses,
+                        daysElapsed,
+                        daysInMonth,
+                        projectedTotalExpenses: totalProjectedExpenses,
+                    })
+                };
             }
         }
     } catch (error) {

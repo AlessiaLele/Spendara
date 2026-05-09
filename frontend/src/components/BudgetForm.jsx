@@ -1,37 +1,53 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-function BudgetForm({ onBudgetCreated }) {
-    const [category, setCategory] = useState('');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+export default function BudgetForm({
+                                       onBudgetSaved,
+                                       availableCategories = []
+                                   }) {
     const [amount, setAmount] = useState('');
-    const [period, setPeriod] = useState('monthly');
-
+    const [category, setCategory] = useState('all');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+
+    const currentDate = useMemo(() => new Date(), []);
+    const month = currentDate.getMonth();
+    const year = currentDate.getFullYear();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!category || !amount) {
-            setMessage('Compila tutti i campi');
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setError('Token mancante. Effettua il login.');
+            return;
+        }
+
+        const numericAmount = Number(amount);
+
+        if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+            setError('Inserisci un importo valido.');
             return;
         }
 
         try {
             setLoading(true);
+            setError('');
             setMessage('');
 
-            const token = localStorage.getItem('token');
-
-            const response = await fetch('/api/budgets', {
+            const response = await fetch(`${API_BASE_URL}/api/budgets`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    amount: numericAmount,
                     category,
-                    amount: Number(amount),
-                    period
+                    month,
+                    year
                 })
             });
 
@@ -41,76 +57,67 @@ function BudgetForm({ onBudgetCreated }) {
                 throw new Error(data.message || 'Errore nel salvataggio del budget');
             }
 
-            setCategory('');
-            setAmount('');
-            setPeriod('monthly');
-            setMessage('Budget salvato con successo');
+            setMessage(
+                category === 'all'
+                    ? 'Budget generale salvato con successo.'
+                    : `Budget per ${category} salvato con successo.`
+            );
 
-            if (onBudgetCreated) {
-                onBudgetCreated();
+            setAmount('');
+            setCategory('all');
+
+            if (typeof onBudgetSaved === 'function') {
+                onBudgetSaved(data.budget);
             }
-        } catch (error) {
-            console.error(error);
-            setMessage(error.message || 'Errore nel salvataggio del budget');
+        } catch (err) {
+            setError(err.message || 'Errore nel salvataggio del budget');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="cash-transaction-card">
-            <h3 className="cash-transaction-title">Imposta budget</h3>
-
-            <form className="cash-transaction-form" onSubmit={handleSubmit}>
-                <div className="cash-transaction-field">
-                    <label>Categoria</label>
+        <form className="cash-transaction-form" onSubmit={handleSubmit}>
+            <div className="cash-transaction-field">
+                <label htmlFor="budget-amount">Importo</label>
+                <div className="currency-input-wrapper">
+                    <span className="currency-symbol">€</span>
                     <input
-                        type="text"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        placeholder="Es. Food"
-                    />
-                </div>
-
-                <div className="cash-transaction-field">
-                    <label>Importo</label>
-                    <input
+                        id="budget-amount"
+                        className="currency-input"
                         type="number"
+                        min="0"
                         step="0.01"
+                        placeholder="Importo"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
+                        required
                     />
                 </div>
+            </div>
 
-                <div className="cash-transaction-field">
-                    <label>Periodo</label>
-                    <select
-                        value={period}
-                        onChange={(e) => setPeriod(e.target.value)}
-                    >
-                        <option value="monthly">Mensile</option>
-                        <option value="weekly">Settimanale</option>
-                        <option value="yearly">Annuale</option>
-                    </select>
-                </div>
-
-                <button
-                    type="submit"
-                    className="cash-transaction-button"
-                    disabled={loading}
+            <div className="cash-transaction-field">
+                <label htmlFor="budget-category">Categoria</label>
+                <select
+                    id="budget-category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
                 >
-                    {loading ? 'Salvataggio...' : 'Salva budget'}
-                </button>
+                    <option value="all">Tutte</option>
+                    {availableCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                            {cat}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
-                {message && (
-                    <p className="cash-transaction-message">
-                        {message}
-                    </p>
-                )}
-            </form>
-        </div>
+            <button type="submit" className="cash-transaction-button" disabled={loading}>
+                {loading ? 'Salvataggio...' : 'Salva budget'}
+            </button>
+
+            {message && <div className="cash-transaction-message">{message}</div>}
+            {error && <div className="cash-transaction-message" style={{ color: '#b91c1c' }}>{error}</div>}
+        </form>
     );
 }
-
-export default BudgetForm;
