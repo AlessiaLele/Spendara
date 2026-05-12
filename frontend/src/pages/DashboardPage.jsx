@@ -82,7 +82,6 @@ function DashboardPage() {
                 return;
             }
 
-            await syncTransactions(token);
             const data = await getDashboardData(token, period, category);
 
             setDashboardData(data);
@@ -383,6 +382,51 @@ function DashboardPage() {
                         Utilizzo previsto: {forecast.budgetAnalysis.projectedUtilizationPct ?? 0}% ·
                         Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
                     </p>
+                </div>
+            )}
+
+            {forecast.categoryBudgetAnalysis?.length > 0 && (
+                <div className="dashboard-card budget-card">
+                    <div className="card-header">
+                        <div>
+                            <h3>Budget per categoria</h3>
+                            <p className="forecast-subtitle">
+                                Confronto tra limite, speso e previsione
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="category-list">
+                        {forecast.categoryBudgetAnalysis.map((item) => (
+                            <div key={item.category} className="category-item">
+                                <div className="category-top">
+                                    <span>{item.category}</span>
+                                    <span>{formatAmount(item.total)} / {formatAmount(item.limit)}</span>
+                                </div>
+
+                                <div className="progress-bar">
+                                    <div
+                                        className="progress-fill"
+                                        style={{ width: `${Math.min(item.usagePercent ?? 0, 100)}%` }}
+                                    />
+                                </div>
+
+                                <div className="progress-meta">
+                                    <span>Speso: {formatAmount(item.spent)}</span>
+                                    <span>Previsto: {formatAmount(item.projected)}</span>
+                                    <span>
+                            {item.status === 'over'
+                                ? 'Superato'
+                                : item.status === 'critical'
+                                    ? 'Critico'
+                                    : item.status === 'warning'
+                                        ? 'Attenzione'
+                                        : 'Ok'}
+                        </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

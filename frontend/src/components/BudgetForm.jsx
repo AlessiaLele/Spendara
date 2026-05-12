@@ -11,6 +11,9 @@ export default function BudgetForm({
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [warningThreshold, setWarningThreshold] = useState('0.8');
+    const [criticalThreshold, setCriticalThreshold] = useState('0.95');
+    const [carryOverEnabled, setCarryOverEnabled] = useState(false);
 
     const currentDate = useMemo(() => new Date(), []);
     const month = currentDate.getMonth();
@@ -47,7 +50,10 @@ export default function BudgetForm({
                     amount: numericAmount,
                     category,
                     month,
-                    year
+                    year,
+                    warningThreshold: Number(warningThreshold),
+                    criticalThreshold: Number(criticalThreshold),
+                    carryOverEnabled
                 })
             });
 

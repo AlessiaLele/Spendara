@@ -692,6 +692,44 @@ function isAnomalousExpense(amount, values) {
     return amount > avg + (3 * sd);
 }
 
+function buildSpentByCategory(transactions) {
+    const map = {};
+
+    for (const tx of transactions) {
+        if (tx.amount >= 0) continue;
+
+        const category = normalizeCategory(tx.category);
+        const amount = Math.abs(Number(tx.amount || 0));
+
+        if (!map[category]) map[category] = 0;
+        map[category] += amount;
+    }
+
+    return map;
+}
+
+function buildProjectedByCategory(categoryForecast, recurringExpenseItems) {
+    const map = {};
+
+    for (const item of categoryForecast || []) {
+        const category = normalizeCategory(item.category);
+        const amount = Number(item.projectedExpense || 0);
+
+        if (!map[category]) map[category] = 0;
+        map[category] += amount;
+    }
+
+    for (const item of recurringExpenseItems || []) {
+        const category = normalizeCategory(item.category);
+        const amount = Number(item.amount || 0);
+
+        if (!map[category]) map[category] = 0;
+        map[category] += amount;
+    }
+
+    return map;
+}
+
 async function buildMonthlyForecast(allTransactions, userId) {
     const now = new Date();
     const user = await User.findById(userId).lean();
@@ -800,6 +838,12 @@ async function buildMonthlyForecast(allTransactions, userId) {
         90
     );
 
+    const currentSpentByCategory = buildSpentByCategory(currentMonthTransactions);
+    const projectedSpentByCategory = buildProjectedByCategory(
+        categoryForecast,
+        remainingRecurringExpenseItems
+    );
+
     const daysRemaining = variableForecast.dailyPredictions.length;
 
     const naiveProjectedExpenses = naiveForecast(
@@ -828,7 +872,8 @@ async function buildMonthlyForecast(allTransactions, userId) {
             if (budgetDoc.categoryBudgets?.length && typeof evaluateCategoryBudgets === 'function') {
                 categoryBudgetAnalysis = evaluateCategoryBudgets(
                     budgetDoc.categoryBudgets,
-                    categoryForecast
+                    currentSpentByCategory,
+                    projectedSpentByCategory
                 );
             }
 
