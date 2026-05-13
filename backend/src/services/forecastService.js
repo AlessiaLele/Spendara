@@ -1,6 +1,6 @@
 const { normalizeCategory } = require('../utils/normalizeCategory');
 const Budget = require("../models/Budget");
-const { evaluateMonthlyBudget, evaluateCategoryBudgets } = require("./budgetService");
+const { evaluateMonthlyBudget, evaluateBudgetConsumption, evaluateCategoryBudgets } = require("./budgetService");
 const User = require("../models/User");
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -693,13 +693,15 @@ function isAnomalousExpense(amount, values) {
 }
 
 function buildSpentByCategory(transactions) {
-    const map = {};
+    const map = { all: 0 };
 
     for (const tx of transactions) {
         if (tx.amount >= 0) continue;
 
         const category = normalizeCategory(tx.category);
         const amount = Math.abs(Number(tx.amount || 0));
+
+        map.all += amount;
 
         if (!map[category]) map[category] = 0;
         map[category] += amount;
@@ -709,11 +711,13 @@ function buildSpentByCategory(transactions) {
 }
 
 function buildProjectedByCategory(categoryForecast, recurringExpenseItems) {
-    const map = {};
+    const map = { all: 0 };
 
     for (const item of categoryForecast || []) {
         const category = normalizeCategory(item.category);
         const amount = Number(item.projectedExpense || 0);
+
+        map.all += amount;
 
         if (!map[category]) map[category] = 0;
         map[category] += amount;
@@ -722,6 +726,8 @@ function buildProjectedByCategory(categoryForecast, recurringExpenseItems) {
     for (const item of recurringExpenseItems || []) {
         const category = normalizeCategory(item.category);
         const amount = Number(item.amount || 0);
+
+        map.all += amount;
 
         if (!map[category]) map[category] = 0;
         map[category] += amount;
@@ -869,12 +875,44 @@ async function buildMonthlyForecast(allTransactions, userId) {
         }).lean();
 
         if (budgetDoc) {
+            const totalBudget = Number(
+                budgetDoc.totalBudget ?? budgetDoc.amount ?? budgetDoc.budgetAmount ?? 0
+            );
+
             if (budgetDoc.categoryBudgets?.length && typeof evaluateCategoryBudgets === 'function') {
                 categoryBudgetAnalysis = evaluateCategoryBudgets(
                     budgetDoc.categoryBudgets,
                     currentSpentByCategory,
                     projectedSpentByCategory
                 );
+            }
+
+            if (totalBudget > 0) {
+                const totalProjectedExpenses =
+                    currentExpenses +
+                    remainingRecurringExpenses +
+                    variableForecast.projectedVariableExpenses;
+
+                const allItem = {
+                    category: 'all',
+                    limit: totalBudget,
+                    spent: Number(currentExpenses.toFixed(2)),
+                    projected: Number((totalProjectedExpenses - currentExpenses).toFixed(2)),
+                    total: Number(totalProjectedExpenses.toFixed(2)),
+                    remaining: Number((totalBudget - totalProjectedExpenses).toFixed(2)),
+                    usagePercent: Number(((totalProjectedExpenses / totalBudget) * 100).toFixed(2)),
+                    isOverBudget: totalProjectedExpenses > totalBudget,
+                    status:
+                        totalProjectedExpenses >= totalBudget
+                            ? 'over'
+                            : totalProjectedExpenses >= totalBudget * (budgetDoc.criticalThreshold ?? 0.95)
+                                ? 'critical'
+                                : totalProjectedExpenses >= totalBudget * (budgetDoc.warningThreshold ?? 0.8)
+                                    ? 'warning'
+                                    : 'ok'
+                };
+
+                categoryBudgetAnalysis = [allItem, ...categoryBudgetAnalysis];
             }
 
             if (typeof evaluateMonthlyBudget === 'function') {
@@ -891,52 +929,52 @@ async function buildMonthlyForecast(allTransactions, userId) {
                     remainingRecurringExpenses +
                     variableForecast.projectedVariableExpenses;
 
-                const budgetTotal = budgetDoc?.totalBudget ?? 0;
-
-                const budgetUtilizationPct = budgetTotal > 0
-                    ? Number(((currentExpenses / budgetTotal) * 100).toFixed(1))
+                const budgetUtilizationPct = totalBudget > 0
+                    ? Number(((currentExpenses / totalBudget) * 100).toFixed(1))
                     : null;
 
-                const projectedBudgetUtilizationPct = budgetTotal > 0
-                    ? Number(((totalProjectedExpenses / budgetTotal) * 100).toFixed(1))
+                const projectedBudgetUtilizationPct = totalBudget > 0
+                    ? Number(((totalProjectedExpenses / totalBudget) * 100).toFixed(1))
                     : null;
 
                 const budgetStatus =
-                    budgetTotal <= 0
+                    totalBudget <= 0
                         ? 'none'
-                        : totalProjectedExpenses >= budgetTotal
+                        : totalProjectedExpenses >= totalBudget
                             ? 'over'
-                            : totalProjectedExpenses >= budgetTotal * (budgetDoc?.criticalThreshold ?? 0.95)
+                            : totalProjectedExpenses >= totalBudget * (budgetDoc?.criticalThreshold ?? 0.95)
                                 ? 'critical'
-                                : totalProjectedExpenses >= budgetTotal * (budgetDoc?.warningThreshold ?? 0.8)
+                                : totalProjectedExpenses >= totalBudget * (budgetDoc?.warningThreshold ?? 0.8)
                                     ? 'warning'
                                     : 'ok';
 
+                const budgetConsumption = evaluateBudgetConsumption({
+                    budget: totalBudget,
+                    spent: currentExpenses
+                });
+
                 budgetAnalysis = {
-                    totalBudget: budgetTotal,
+                    totalBudget,
                     spent: Number(currentExpenses.toFixed(2)),
-                    remaining: Number(
-                        Math.max(budgetTotal - currentExpenses, 0).toFixed(2)
-                    ),
-                    projectedTotalExpenses: Number(
-                        totalProjectedExpenses.toFixed(2)
-                    ),
-                    variance: Number(
-                        (totalProjectedExpenses - budgetTotal).toFixed(2)
-                    ),
-                    variancePct: budgetTotal > 0
-                        ? Number(
-                            (((totalProjectedExpenses - budgetTotal) / budgetTotal) * 100).toFixed(1)
-                        )
+                    remaining: Number(Math.max(totalBudget - currentExpenses, 0).toFixed(2)),
+                    spentUtilizationPct: budgetConsumption.spentUtilizationPct,
+                    spendingStatus: budgetConsumption.status,
+                    spendingMessage: budgetConsumption.message,
+                    actualIsOverBudget: budgetConsumption.isOverBudget,
+                    actualIsFullySpent: budgetConsumption.isFullySpent,
+                    projectedTotalExpenses: Number(totalProjectedExpenses.toFixed(2)),
+                    variance: Number((totalProjectedExpenses - totalBudget).toFixed(2)),
+                    variancePct: totalBudget > 0
+                        ? Number((((totalProjectedExpenses - totalBudget) / totalBudget) * 100).toFixed(1))
                         : null,
-                    exceeded: budgetTotal > 0 ? totalProjectedExpenses > budgetTotal : false,
+                    exceeded: totalBudget > 0 ? totalProjectedExpenses > totalBudget : false,
                     warningThreshold: budgetDoc?.warningThreshold ?? 0.8,
                     criticalThreshold: budgetDoc?.criticalThreshold ?? 0.95,
                     status: budgetStatus,
                     utilizationPct: budgetUtilizationPct,
                     projectedUtilizationPct: projectedBudgetUtilizationPct,
                     monthlyEvaluation: evaluateMonthlyBudget({
-                        budget: budgetTotal,
+                        budget: totalBudget,
                         currentExpenses,
                         daysElapsed,
                         daysInMonth,

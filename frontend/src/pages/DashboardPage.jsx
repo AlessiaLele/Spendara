@@ -65,6 +65,36 @@ function DashboardPage() {
         }
     };
 
+    const getBudgetSpendingTone = (status) => {
+        switch (status) {
+            case 'over':
+                return 'error';
+            case 'full':
+            case 'partial':
+                return 'warning';
+            case 'unused':
+            case 'none':
+            default:
+                return 'success';
+        }
+    };
+
+    const getBudgetSpendingLabel = (status) => {
+        switch (status) {
+            case 'partial':
+                return 'Parzialmente speso';
+            case 'full':
+                return 'Interamente speso';
+            case 'over':
+                return 'Budget superato';
+            case 'unused':
+                return 'Budget non ancora usato';
+            case 'none':
+            default:
+                return 'Nessun budget';
+        }
+    };
+
     const loadDashboard = async (period = selectedPeriod, category = selectedCategory) => {
         try {
             setLoading(true);
@@ -218,6 +248,10 @@ function DashboardPage() {
         value: category.value
     }));
 
+    const budgetSpendingStatus = forecast.budgetAnalysis?.spendingStatus ?? 'none';
+    const budgetSpendingTone = getBudgetSpendingTone(budgetSpendingStatus);
+    const budgetSpendingLabel = getBudgetSpendingLabel(budgetSpendingStatus);
+
     return (
         <div className="dashboard-wrapper">
             <div className="dashboard-header hero">
@@ -336,15 +370,27 @@ function DashboardPage() {
                             </p>
                         </div>
 
-                        <span className={`forecast-badge ${forecast.budgetAnalysis.status}`}>
-                            {forecast.budgetAnalysis.status === 'over'
-                                ? 'Superato'
-                                : forecast.budgetAnalysis.status === 'critical'
-                                    ? 'Critico'
-                                    : forecast.budgetAnalysis.status === 'warning'
-                                        ? 'Attenzione'
-                                        : 'Ok'}
-                        </span>
+                        <span
+                            className={`forecast-badge ${
+                                forecast.budgetAnalysis.spendingStatus === 'over'
+                                    ? 'error'
+                                    : forecast.budgetAnalysis.spendingStatus === 'full'
+                                        ? 'warning'
+                                        : forecast.budgetAnalysis.spendingStatus === 'partial'
+                                            ? 'warning'
+                                            : 'success'
+                            }`}
+                        >
+        {forecast.budgetAnalysis.spendingStatus === 'over'
+            ? 'Budget superato'
+            : forecast.budgetAnalysis.spendingStatus === 'full'
+                ? 'Interamente speso'
+                : forecast.budgetAnalysis.spendingStatus === 'partial'
+                    ? 'Parzialmente speso'
+                    : forecast.budgetAnalysis.spendingStatus === 'unused'
+                        ? 'Non utilizzato'
+                        : 'Nessun budget'}
+    </span>
                     </div>
 
                     <div className="stats-grid" style={{ marginBottom: 0 }}>
