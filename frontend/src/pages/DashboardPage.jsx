@@ -95,6 +95,11 @@ function DashboardPage() {
         }
     };
 
+    const getCategoryLabel = (category) => {
+        const normalized = String(category ?? '').trim().toLowerCase();
+        return normalized === 'all' ? 'Tutte le categorie' : category;
+    };
+
     const loadDashboard = async (period = selectedPeriod, category = selectedCategory) => {
         try {
             setLoading(true);
@@ -446,7 +451,7 @@ function DashboardPage() {
                         {forecast.categoryBudgetAnalysis.map((item) => (
                             <div key={item.category} className="category-item">
                                 <div className="category-top">
-                                    <span>{item.category}</span>
+                                    <span>{getCategoryLabel(item.category)}</span>
                                     <span>{formatAmount(item.total)} / {formatAmount(item.limit)}</span>
                                 </div>
 
@@ -468,7 +473,7 @@ function DashboardPage() {
                                     : item.status === 'warning'
                                         ? 'Attenzione'
                                         : 'Ok'}
-                        </span>
+                                     </span>
                                 </div>
                             </div>
                         ))}

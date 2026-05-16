@@ -898,16 +898,16 @@ async function buildMonthlyForecast(allTransactions, userId) {
                     limit: totalBudget,
                     spent: Number(currentExpenses.toFixed(2)),
                     projected: Number((totalProjectedExpenses - currentExpenses).toFixed(2)),
-                    total: Number(totalProjectedExpenses.toFixed(2)),
-                    remaining: Number((totalBudget - totalProjectedExpenses).toFixed(2)),
-                    usagePercent: Number(((totalProjectedExpenses / totalBudget) * 100).toFixed(2)),
-                    isOverBudget: totalProjectedExpenses > totalBudget,
+                    total: Number(currentExpenses.toFixed(2)), // importo realmente speso
+                    remaining: Number((totalBudget - currentExpenses).toFixed(2)),
+                    usagePercent: Number(((currentExpenses / totalBudget) * 100).toFixed(2)),
+                    isOverBudget: currentExpenses > totalBudget,
                     status:
-                        totalProjectedExpenses >= totalBudget
+                        currentExpenses >= totalBudget
                             ? 'over'
-                            : totalProjectedExpenses >= totalBudget * (budgetDoc.criticalThreshold ?? 0.95)
+                            : currentExpenses >= totalBudget * (budgetDoc.criticalThreshold ?? 0.95)
                                 ? 'critical'
-                                : totalProjectedExpenses >= totalBudget * (budgetDoc.warningThreshold ?? 0.8)
+                                : currentExpenses >= totalBudget * (budgetDoc.warningThreshold ?? 0.8)
                                     ? 'warning'
                                     : 'ok'
                 };

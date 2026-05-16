@@ -105,16 +105,33 @@ async function upsertMonthlyBudget(req, res) {
         if (category === 'all') {
             budget.totalBudget = amount;
         } else {
-            const existingIndex = budget.categoryBudgets.findIndex(
-                item => normalizeCategory(item.category) === category
+            const categoryBudgets = Array.isArray(budget.categoryBudgets)
+                ? budget.categoryBudgets
+                : [];
+
+            const existingIndex = categoryBudgets.findIndex(
+                item => normalizeCategory(item.category ?? item.name) === category
             );
 
-            if (existingIndex >= 0) {
-                budget.categoryBudgets[existingIndex].limit = amount;
-                budget.categoryBudgets[existingIndex].category = category;
-            } else {
-                budget.categoryBudgets.push({ category, limit: amount });
-            }
+            const existingItem =
+                existingIndex >= 0
+                    ? (categoryBudgets[existingIndex].toObject
+                        ? categoryBudgets[existingIndex].toObject()
+                        : { ...categoryBudgets[existingIndex] })
+                    : null;
+
+            const updatedItem = {
+                ...(existingItem || {}),
+                category,
+                limit: amount
+            };
+
+            budget.categoryBudgets = [
+                ...categoryBudgets.filter(
+                    item => normalizeCategory(item.category ?? item.name) !== category
+                ),
+                updatedItem
+            ];
         }
 
         budget.warningThreshold = warningThreshold;
@@ -138,6 +155,7 @@ async function upsertMonthlyBudget(req, res) {
             budget
         });
     } catch (error) {
+        console.error('ERRORE upsertMonthlyBudget:', error);
         return res.status(400).json({
             message: error.message || 'Errore nel salvataggio budget'
         });
