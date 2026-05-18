@@ -26,6 +26,23 @@ function parseBoolean(value) {
     return false;
 }
 
+function getRawCategoryValue(category) {
+    if (typeof category !== 'string') return 'all';
+    return category.trim().toLowerCase();
+}
+
+function isGlobalCategory(category) {
+    const raw = getRawCategoryValue(category);
+
+    return (
+        raw === 'all' ||
+        raw === 'tutte' ||
+        raw === 'tutte le categorie' ||
+        raw === 'tutte le categoria' ||
+        raw === 'tutte categorie'
+    );
+}
+
 async function getBudgetHistory(req, res) {
     try {
         const userId = req.user._id;
@@ -60,7 +77,9 @@ async function upsertMonthlyBudget(req, res) {
         const { month, year } = parseMonthYear(req.body);
 
         const amount = Number(req.body.amount ?? req.body.totalBudget);
-        const category = req.body.category ? normalizeCategory(req.body.category) : 'all';
+        const category = isGlobalCategory(req.body.category)
+            ? 'all'
+            : normalizeCategory(req.body.category);
 
         const warningThresholdRaw = req.body.warningThreshold ?? 0.8;
         const criticalThresholdRaw = req.body.criticalThreshold ?? 0.95;
@@ -109,32 +128,39 @@ async function upsertMonthlyBudget(req, res) {
                 ? budget.categoryBudgets
                 : [];
 
-            const existingIndex = categoryBudgets.findIndex(
-                item => normalizeCategory(item.category ?? item.name) === category
+            const normalizedCategory = normalizeCategory(category).toLowerCase();
+
+            const cleanedCategoryBudgets = categoryBudgets
+                .filter(item => normalizeCategory(item.category ?? item.name) !== 'all')
+                .filter((item, index, arr) => {
+                    const key = normalizeCategory(item.category ?? item.name).toLowerCase();
+                    return (
+                        arr.findIndex(
+                            x => normalizeCategory(x.category ?? x.name).toLowerCase() === key
+                        ) === index
+                    );
+                });
+
+            const existingIndex = cleanedCategoryBudgets.findIndex(
+                item => normalizeCategory(item.category ?? item.name).toLowerCase() === normalizedCategory
             );
 
-            const existingItem =
-                existingIndex >= 0
-                    ? (categoryBudgets[existingIndex].toObject
-                        ? categoryBudgets[existingIndex].toObject()
-                        : { ...categoryBudgets[existingIndex] })
-                    : null;
-
             const updatedItem = {
-                ...(existingItem || {}),
-                category,
+                category: normalizeCategory(category),
                 limit: amount
             };
 
-            budget.categoryBudgets = [
-                ...categoryBudgets
-                    .filter(item => normalizeCategory(item.category ?? item.name) !== 'all')
-                    .filter((item, index, arr) => {
-                        const key = normalizeCategory(item.category ?? item.name).toLowerCase();
-                        return arr.findIndex(x => normalizeCategory(x.category ?? x.name).toLowerCase() === key) === index;
-                    }),
-                updatedItem
-            ].filter(item => normalizeCategory(item.category ?? item.name) !== 'all');        }
+            if (existingIndex >= 0) {
+                cleanedCategoryBudgets[existingIndex] = {
+                    ...cleanedCategoryBudgets[existingIndex],
+                    ...updatedItem
+                };
+            } else {
+                cleanedCategoryBudgets.push(updatedItem);
+            }
+
+            budget.categoryBudgets = cleanedCategoryBudgets;
+        }
 
         budget.warningThreshold = warningThreshold;
         budget.criticalThreshold = criticalThreshold;
