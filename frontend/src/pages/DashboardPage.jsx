@@ -97,7 +97,8 @@ function DashboardPage() {
 
     const getCategoryLabel = (category) => {
         const normalized = String(category ?? '').trim().toLowerCase();
-        return normalized === 'all' ? 'Tutte le categorie' : category;
+        if (normalized === 'all') return 'Budget generale';
+        return category;
     };
 
     const loadDashboard = async (period = selectedPeriod, category = selectedCategory) => {

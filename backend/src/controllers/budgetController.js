@@ -127,12 +127,14 @@ async function upsertMonthlyBudget(req, res) {
             };
 
             budget.categoryBudgets = [
-                ...categoryBudgets.filter(
-                    item => normalizeCategory(item.category ?? item.name) !== category
-                ),
+                ...categoryBudgets
+                    .filter(item => normalizeCategory(item.category ?? item.name) !== 'all')
+                    .filter((item, index, arr) => {
+                        const key = normalizeCategory(item.category ?? item.name).toLowerCase();
+                        return arr.findIndex(x => normalizeCategory(x.category ?? x.name).toLowerCase() === key) === index;
+                    }),
                 updatedItem
-            ];
-        }
+            ].filter(item => normalizeCategory(item.category ?? item.name) !== 'all');        }
 
         budget.warningThreshold = warningThreshold;
         budget.criticalThreshold = criticalThreshold;

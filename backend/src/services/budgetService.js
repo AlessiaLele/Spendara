@@ -87,30 +87,41 @@ function evaluateBudgetConsumption({ budget = 0, spent = 0 }) {
 }
 
 function evaluateCategoryBudgets(categoryBudgets = [], currentByCategory = {}, projectedByCategory = {}) {
-    return categoryBudgets.map((b) => {
-        const category = normalizeCategory(b.category || b.name || '');
-        const limit = Number(b.limit ?? b.amount ?? 0);
+    const seen = new Set();
 
-        const spent = Number(currentByCategory[category] || 0);
-        const projected = Number(projectedByCategory[category] || 0);
-        const total = Number((spent + projected).toFixed(2));
+    return categoryBudgets
+        .map((b) => {
+            const rawCategory = String(b.category || b.name || '').trim();
+            const category = normalizeCategory(rawCategory);
+            const limit = Number(b.limit ?? b.amount ?? 0);
 
-        return {
-            category,
-            limit,
-            spent,
-            projected,
-            total,
-            remaining: Number((limit - total).toFixed(2)),
-            usagePercent: limit > 0 ? Number(((total / limit) * 100).toFixed(2)) : null,
-            isOverBudget: limit > 0 && total > limit,
-            status:
-                limit <= 0 ? 'none' :
-                    total >= limit ? 'over' :
-                        total >= limit * 0.95 ? 'critical' :
-                            total >= limit * 0.8 ? 'warning' : 'ok'
-        };
-    });
+            const spent = Number(currentByCategory[category] || 0);
+            const projected = Number(projectedByCategory[category] || 0);
+            const total = Number((spent + projected).toFixed(2));
+
+            return {
+                category,
+                limit,
+                spent,
+                projected,
+                total,
+                remaining: Number((limit - total).toFixed(2)),
+                usagePercent: limit > 0 ? Number(((total / limit) * 100).toFixed(2)) : null,
+                isOverBudget: limit > 0 && total > limit,
+                status:
+                    limit <= 0 ? 'none' :
+                        total >= limit ? 'over' :
+                            total >= limit * 0.95 ? 'critical' :
+                                total >= limit * 0.8 ? 'warning' : 'ok'
+            };
+        })
+        .filter((item) => {
+            const key = String(item.category || '').trim().toLowerCase();
+            if (!key || key === 'all') return false;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
 }
 
 module.exports = {
