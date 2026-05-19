@@ -19,6 +19,13 @@ export default function BudgetForm({
     const month = currentDate.getMonth();
     const year = currentDate.getFullYear();
 
+    const budgetCategories = useMemo(() => {
+        return (availableCategories || []).filter((cat) => {
+            const normalized = String(cat).trim().toLowerCase();
+            return normalized !== 'stipendio' && normalized !== 'salary';
+        });
+    }, [availableCategories]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -110,7 +117,7 @@ export default function BudgetForm({
                     onChange={(e) => setCategory(e.target.value)}
                 >
                     <option value="all">Tutte</option>
-                    {availableCategories.map((cat) => (
+                    {budgetCategories.map((cat) => (
                         <option key={cat} value={cat}>
                             {cat}
                         </option>

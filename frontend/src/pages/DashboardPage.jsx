@@ -185,6 +185,10 @@ function DashboardPage() {
         balance: 0
     };
 
+    const budgetCategories = (dashboardData?.availableCategories || []).filter(
+        (category) => String(category ?? '').trim().toLowerCase() !== 'stipendio'
+    );
+
     const categories = dashboardData?.categories || [];
     const trend = dashboardData?.trend || [];
     const topExpenses = dashboardData?.topExpenses || [];
@@ -490,7 +494,7 @@ function DashboardPage() {
 
                 <BudgetForm
                     onBudgetSaved={() => loadDashboard(selectedPeriod, selectedCategory)}
-                    availableCategories={dashboardData?.availableCategories || []}
+                    availableCategories={budgetCategories}
                 />
             </div>
 
