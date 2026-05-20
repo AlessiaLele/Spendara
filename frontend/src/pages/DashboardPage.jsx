@@ -458,7 +458,7 @@ function DashboardPage() {
                                 <div key={item.category} className="category-item">
                                     <div className="category-top">
                                         <span>{getCategoryLabel(item.category)}</span>
-                                        <span>{formatAmount(item.total)} / {formatAmount(item.limit)}</span>
+                                        <span>{formatAmount(item.spent)} / {formatAmount(item.limit)}</span>
                                     </div>
 
                                     <div className="progress-bar">
@@ -469,17 +469,16 @@ function DashboardPage() {
                                     </div>
 
                                     <div className="progress-meta">
-                                        <span>Speso: {formatAmount(item.spent)}</span>
-                                        <span>Previsto: {formatAmount(item.projected)}</span>
+                                        <span>Totale previsto a fine mese: {formatAmount(item.projected)}</span>
                                         <span>
-                                {item.status === 'over'
-                                    ? 'Superato'
-                                    : item.status === 'critical'
-                                        ? 'Critico'
-                                        : item.status === 'warning'
-                                            ? 'Attenzione'
-                                            : 'Ok'}
-                            </span>
+                                            {item.status === 'over'
+                                                ? 'Superato'
+                                                : item.status === 'critical'
+                                                    ? 'Critico'
+                                                    : item.status === 'warning'
+                                                        ? 'Attenzione'
+                                                        : 'Ok'}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
@@ -725,9 +724,7 @@ function DashboardPage() {
                                     <div className="progress-bar">
                                         <div
                                             className="progress-fill"
-                                            style={{
-                                                width: `${Math.min(item.historicalShare * 100, 100)}%`
-                                            }}
+                                            style={{ width: `${Math.min((item.spent / item.limit) * 100 || 0, 100)}%` }}
                                         />
                                     </div>
 
