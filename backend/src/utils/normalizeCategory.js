@@ -43,11 +43,13 @@ function normalizeCategory(category) {
         salary: 'Stipendio',
         stipendio: 'Stipendio',
 
-        income: 'Entrate',
-        entrate: 'Entrate',
-
-        refund: 'Rimborso',
-        rimborso: 'Rimborso',
+        income: 'Altre entrate',
+        entrate: 'Altre entrate',
+        refund: 'Altre entrate',
+        rimborso: 'Altre entrate',
+        cashback: 'Altre entrate',
+        bonus: 'Altre entrate',
+        extra: 'Altre entrate',
 
         other: 'Altro',
         altro: 'Altro'

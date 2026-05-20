@@ -97,7 +97,7 @@ function DashboardPage() {
 
     const getCategoryLabel = (category) => {
         const normalized = String(category ?? '').trim().toLowerCase();
-        if (normalized === 'all') return 'Budget generale';
+        if (normalized === 'all') return 'Tutte le categorie';
         return category;
     };
 
@@ -308,7 +308,7 @@ function DashboardPage() {
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
                             >
-                                <option value="all">Budget generale</option>
+                                <option value="all">Tutte le categorie</option>
                                 {(dashboardData?.availableCategories || []).map((cat) => (
                                     <option key={cat} value={cat}>
                                         {cat}

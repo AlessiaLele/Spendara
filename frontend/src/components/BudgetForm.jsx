@@ -20,9 +20,20 @@ export default function BudgetForm({
     const year = currentDate.getFullYear();
 
     const budgetCategories = useMemo(() => {
+        const nonBudgetable = new Set([
+            'stipendio',
+            'salary',
+            'entrate',
+            'income',
+            'rimborso',
+            'refund',
+            'altre entrate',
+            'cashback',
+            'bonus'
+        ]);
         return (availableCategories || []).filter((cat) => {
             const normalized = String(cat).trim().toLowerCase();
-            return normalized !== 'stipendio' && normalized !== 'salary';
+            return !nonBudgetable.has(normalized);
         });
     }, [availableCategories]);
 
@@ -72,7 +83,7 @@ export default function BudgetForm({
 
             setMessage(
                 category === 'all'
-                    ? 'Budget generale salvato con successo.'
+                    ? 'Budget su tutte le categorie salvato con successo.'
                     : `Budget per ${category} salvato con successo.`
             );
 
@@ -116,7 +127,7 @@ export default function BudgetForm({
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                 >
-                    <option value="all">Budget generale</option>
+                    <option value="all">Tutte le categorie</option>
                     {budgetCategories.map((cat) => (
                         <option key={cat} value={cat}>
                             {cat}
