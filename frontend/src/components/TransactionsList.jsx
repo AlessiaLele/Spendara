@@ -46,7 +46,7 @@ function TransactionsList({
                     return (
                         <tr key={transaction._id}>
                             <td>{transaction.description || 'Senza descrizione'}</td>
-                            <td>{transaction.category || 'Uncategorized'}</td>
+                            <td>{transaction.category || ''}</td>
                             <td>{new Date(transaction.date).toLocaleDateString('it-IT')}</td>
                             <td
                                 className={

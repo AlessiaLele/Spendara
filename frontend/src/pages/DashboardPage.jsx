@@ -308,7 +308,7 @@ function DashboardPage() {
                                 value={selectedCategory}
                                 onChange={(e) => setSelectedCategory(e.target.value)}
                             >
-                                <option value="all">Tutte</option>
+                                <option value="all">Budget generale</option>
                                 {(dashboardData?.availableCategories || []).map((cat) => (
                                     <option key={cat} value={cat}>
                                         {cat}

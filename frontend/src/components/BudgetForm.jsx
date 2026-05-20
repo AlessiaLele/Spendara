@@ -116,7 +116,7 @@ export default function BudgetForm({
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                 >
-                    <option value="all">Tutte</option>
+                    <option value="all">Budget generale</option>
                     {budgetCategories.map((cat) => (
                         <option key={cat} value={cat}>
                             {cat}

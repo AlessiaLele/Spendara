@@ -88,7 +88,7 @@ async function handleCallback(req, res) {
                     currencyCode: tx.currencyCode || 'EUR',
                     description: tx.description || '',
                     date: tx.date ? new Date(tx.date) : new Date(),
-                    category: tx.category || 'Uncategorized',
+                    category: tx.category || null,
                     source: 'bank'
                 });
             }

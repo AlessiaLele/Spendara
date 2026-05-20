@@ -35,7 +35,7 @@ const transactionSchema = new mongoose.Schema(
         },
         category: {
             type: String,
-            default: 'Non categorizzato'
+            default: null
         },
         source: {
             type: String,

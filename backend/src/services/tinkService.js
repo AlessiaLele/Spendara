@@ -188,7 +188,7 @@ function generateMockTransactions({ accountIds = ['demo-account-1'], from, to } 
 
     const incomeTemplates = [
         { description: 'Stipendio', category: 'Salary', min: 1200, max: 2800 },
-        { description: 'Rimborso', category: 'Refund', min: 20, max: 180 }
+        { description: 'Rimborso', category: 'Rimborso', min: 20, max: 180 }
     ];
 
     const start = from ? new Date(from) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -320,7 +320,7 @@ async function getTransactionsPage(accessToken, options = {}) {
             currencyCode: tx.currencyCode || tx.currency || 'EUR',
             description: tx.description || tx.merchantName || '',
             date: tx.date || tx.bookingDate || new Date().toISOString(),
-            category: tx.category || tx.merchantCategory || 'Uncategorized',
+            category: tx.category || tx.merchantCategory || null,
             raw: tx
         })).filter(tx => tx.id),
         nextCursor

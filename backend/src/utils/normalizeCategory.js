@@ -36,26 +36,24 @@ function normalizeCategory(category) {
         rent: 'Affitto',
         affitto: 'Affitto',
 
+        home: 'Casa',
+        housing: 'Casa',
+        casa: 'Casa',
+
         salary: 'Stipendio',
         stipendio: 'Stipendio',
 
         income: 'Entrate',
         entrate: 'Entrate',
 
-        uncategorized: 'Non categorizzato',
-        'non categorizzato': 'Non categorizzato',
+        refund: 'Rimborso',
+        rimborso: 'Rimborso',
 
         other: 'Altro',
         altro: 'Altro'
     };
 
-    if (!raw) {
-        return 'Non categorizzato';
-    }
-
-    return categoryMap[raw] || (
-        raw.charAt(0).toUpperCase() + raw.slice(1)
-    );
+    return categoryMap[raw] || null;
 }
 
 module.exports = {

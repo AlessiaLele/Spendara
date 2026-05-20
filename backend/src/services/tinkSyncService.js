@@ -116,7 +116,7 @@ function normalizeTransaction(userId, tx, accountMap) {
         currencyCode: tx.currencyCode || 'EUR',
         description: String(tx.description || '').trim(),
         date: toDateOrNull(tx.date) || new Date(),
-        category: normalizeCategory(tx.category || 'Uncategorized'),
+        category: normalizeCategory(tx.category),
         manualOverride: false
     };
 }

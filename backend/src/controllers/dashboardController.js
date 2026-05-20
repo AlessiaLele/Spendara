@@ -180,7 +180,8 @@ async function getDashboardData(req, res) {
         const categoryMap = {};
         periodTransactions.forEach((t) => {
             if (t.amount < 0) {
-                const cat = t.category || 'Altro';
+                if (!t.category) return;
+                const cat = t.category;
                 categoryMap[cat] = (categoryMap[cat] || 0) + Math.abs(Number(t.amount || 0));
             }
         });

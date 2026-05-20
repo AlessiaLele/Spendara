@@ -163,7 +163,6 @@ function AddCashTransactionForm({
                 <option value="Salute">Salute</option>
                 <option value="Casa">Casa</option>
                 <option value="Utenze">Utenze</option>
-                <option value="Altro">Altro</option>
             </select>
 
             <input
