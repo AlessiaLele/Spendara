@@ -128,7 +128,7 @@ async function upsertMonthlyBudget(req, res) {
                 ? budget.categoryBudgets
                 : [];
 
-            const normalizedCategory = normalizeCategory(category).toLowerCase();
+            const normalizedCategory = (normalizeCategory(category) ?? category).toLowerCase();
 
             const cleanedCategoryBudgets = categoryBudgets
                 .filter(item => normalizeCategory(item.category ?? item.name) !== 'all')

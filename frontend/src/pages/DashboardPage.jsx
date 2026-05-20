@@ -430,13 +430,14 @@ function DashboardPage() {
                             <div
                                 className="progress-fill"
                                 style={{
-                                    width: `${Math.min(forecast.budgetAnalysis.projectedUtilizationPct ?? 0, 100)}%`
+                                    width: `${Math.min(forecast.budgetAnalysis.spentUtilizationPct ?? 0, 100)}%`
                                 }}
                             />
                         </div>
 
                         <p className="stat-caption budget-caption" style={{ marginTop: 10 }}>
-                            Utilizzo previsto: {forecast.budgetAnalysis.projectedUtilizationPct ?? 0}% ·
+                            Speso: {forecast.budgetAnalysis.spentUtilizationPct ?? 0}% del budget ·
+                            Residuo: {Math.max(0, 100 - (forecast.budgetAnalysis.spentUtilizationPct ?? 0)).toFixed(1)}% ·
                             Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
                         </p>
                     </div>
@@ -455,30 +456,44 @@ function DashboardPage() {
 
                         <div className="category-list">
                             {forecast.categoryBudgetAnalysis.map((item) => (
-                                <div key={item.category} className="category-item">
+                                <div
+                                    key={item.category}
+                                    className={`category-item category-item--${item.status}`}
+                                >
                                     <div className="category-top">
-                                        <span>{getCategoryLabel(item.category)}</span>
-                                        <span>{formatAmount(item.spent)} / {formatAmount(item.limit)}</span>
+        <span className="category-name">
+            {item.status === 'over' && <span className="category-icon">🔴</span>}
+            {item.status === 'critical' && <span className="category-icon">🟠</span>}
+            {item.status === 'warning' && <span className="category-icon">🟡</span>}
+            {item.status === 'ok' && <span className="category-icon">🟢</span>}
+            {getCategoryLabel(item.category)}
+        </span>
+                                        <span className={`category-badge category-badge--${item.status}`}>
+            {item.status === 'over'
+                ? '🚨 Superato'
+                : item.status === 'critical'
+                    ? '⚠️ Critico'
+                    : item.status === 'warning'
+                        ? '⚡ Attenzione'
+                        : '✓ Ok'}
+        </span>
                                     </div>
 
                                     <div className="progress-bar">
                                         <div
-                                            className="progress-fill"
+                                            className={`progress-fill progress-fill--${item.status}`}
                                             style={{ width: `${Math.min(item.usagePercent ?? 0, 100)}%` }}
                                         />
                                     </div>
 
                                     <div className="progress-meta">
-                                        <span>Totale previsto a fine mese: {formatAmount(item.projected)}</span>
                                         <span>
-                                            {item.status === 'over'
-                                                ? 'Superato'
-                                                : item.status === 'critical'
-                                                    ? 'Critico'
-                                                    : item.status === 'warning'
-                                                        ? 'Attenzione'
-                                                        : 'Ok'}
+                                            <strong style={{ color: '#111827', fontSize: '15px' }}>
+                                                {formatAmount(item.spent)}
+                                            </strong>
+                                            <span style={{ color: '#6b7280' }}> / {formatAmount(item.limit)}</span>
                                         </span>
+                                        <span style={{ fontWeight: 600, color: '#374151' }}>{item.usagePercent ?? 0}%</span>
                                     </div>
                                 </div>
                             ))}

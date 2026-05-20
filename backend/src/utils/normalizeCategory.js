@@ -55,7 +55,7 @@ function normalizeCategory(category) {
         altro: 'Altro'
     };
 
-    return categoryMap[raw] || null;
+    return categoryMap[raw] || category.trim();
 }
 
 module.exports = {
