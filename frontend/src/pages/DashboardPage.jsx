@@ -370,132 +370,138 @@ function DashboardPage() {
                 </div>
             </div>
 
-            {forecast.budgetAnalysis && (
-                <div className="dashboard-card budget-card">
-                    <div className="card-header">
-                        <div>
-                            <h3>Budget mensile</h3>
-                            <p className="forecast-subtitle">
-                                Controllo spesa rispetto al limite impostato
-                            </p>
-                        </div>
-
-                        <span
-                            className={`forecast-badge ${
-                                forecast.budgetAnalysis.spendingStatus === 'over'
-                                    ? 'error'
-                                    : forecast.budgetAnalysis.spendingStatus === 'full'
-                                        ? 'warning'
-                                        : forecast.budgetAnalysis.spendingStatus === 'partial'
-                                            ? 'warning'
-                                            : 'success'
-                            }`}
-                        >
-        {forecast.budgetAnalysis.spendingStatus === 'over'
-            ? 'Budget superato'
-            : forecast.budgetAnalysis.spendingStatus === 'full'
-                ? 'Interamente speso'
-                : forecast.budgetAnalysis.spendingStatus === 'partial'
-                    ? 'Parzialmente speso'
-                    : forecast.budgetAnalysis.spendingStatus === 'unused'
-                        ? 'Non utilizzato'
-                        : 'Nessun budget'}
-    </span>
-                    </div>
-
-                    <div className="stats-grid" style={{ marginBottom: 0 }}>
-                        <div className="stat-card">
-                            <p className="stat-label">Budget totale</p>
-                            <h2>{formatAmount(forecast.budgetAnalysis.totalBudget)}</h2>
-                        </div>
-
-                        <div className="stat-card">
-                            <p className="stat-label">Speso finora</p>
-                            <h2>{formatAmount(forecast.budgetAnalysis.spent)}</h2>
-                        </div>
-
-                        <div className="stat-card">
-                            <p className="stat-label">Residuo</p>
-                            <h2>{formatAmount(forecast.budgetAnalysis.remaining)}</h2>
-                        </div>
-
-                        <div className="stat-card">
-                            <p className="stat-label">Previsto a fine mese</p>
-                            <h2>{formatAmount(forecast.budgetAnalysis.projectedTotalExpenses)}</h2>
-                        </div>
-                    </div>
-
-                    <div className="progress-bar" style={{ marginTop: 16 }}>
-                        <div
-                            className="progress-fill"
-                            style={{
-                                width: `${Math.min(forecast.budgetAnalysis.projectedUtilizationPct ?? 0, 100)}%`
-                            }}
-                        />
-                    </div>
-
-                    <p className="stat-caption" style={{ marginTop: 10 }}>
-                        Utilizzo previsto: {forecast.budgetAnalysis.projectedUtilizationPct ?? 0}% ·
-                        Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
-                    </p>
-                </div>
-            )}
-
-            {forecast.categoryBudgetAnalysis?.length > 0 && (
-                <div className="dashboard-card budget-card">
-                    <div className="card-header">
-                        <div>
-                            <h3>Budget per categoria</h3>
-                            <p className="forecast-subtitle">
-                                Confronto tra limite, speso e previsione
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="category-list">
-                        {forecast.categoryBudgetAnalysis.map((item) => (
-                            <div key={item.category} className="category-item">
-                                <div className="category-top">
-                                    <span>{getCategoryLabel(item.category)}</span>
-                                    <span>{formatAmount(item.total)} / {formatAmount(item.limit)}</span>
-                                </div>
-
-                                <div className="progress-bar">
-                                    <div
-                                        className="progress-fill"
-                                        style={{ width: `${Math.min(item.usagePercent ?? 0, 100)}%` }}
-                                    />
-                                </div>
-
-                                <div className="progress-meta">
-                                    <span>Speso: {formatAmount(item.spent)}</span>
-                                    <span>Previsto: {formatAmount(item.projected)}</span>
-                                    <span>
-                            {item.status === 'over'
-                                ? 'Superato'
-                                : item.status === 'critical'
-                                    ? 'Critico'
-                                    : item.status === 'warning'
-                                        ? 'Attenzione'
-                                        : 'Ok'}
-                                     </span>
-                                </div>
+            <div className="budget-panels-grid">
+                {forecast.budgetAnalysis && (
+                    <div className="dashboard-card budget-card budget-card--monthly">
+                        <div className="card-header card-header--stacked">
+                            <div className="card-header-text">
+                                <h3>Budget mensile</h3>
+                                <p className="forecast-subtitle">
+                                    Controllo spesa rispetto al limite impostato
+                                </p>
                             </div>
-                        ))}
+
+                            <span
+                                className={`forecast-badge ${
+                                    forecast.budgetAnalysis.spendingStatus === 'over'
+                                        ? 'error'
+                                        : forecast.budgetAnalysis.spendingStatus === 'full'
+                                            ? 'warning'
+                                            : forecast.budgetAnalysis.spendingStatus === 'partial'
+                                                ? 'warning'
+                                                : 'success'
+                                }`}
+                            >
+                {forecast.budgetAnalysis.spendingStatus === 'over'
+                    ? 'Budget superato'
+                    : forecast.budgetAnalysis.spendingStatus === 'full'
+                        ? 'Interamente speso'
+                        : forecast.budgetAnalysis.spendingStatus === 'partial'
+                            ? 'Parzialmente speso'
+                            : forecast.budgetAnalysis.spendingStatus === 'unused'
+                                ? 'Non utilizzato'
+                                : 'Nessun budget'}
+            </span>
+                        </div>
+
+                        <div className="stats-grid budget-monthly-grid" style={{ marginBottom: 0 }}>
+                            <div className="stat-card">
+                                <p className="stat-label">Budget totale</p>
+                                <h2>{formatAmount(forecast.budgetAnalysis.totalBudget)}</h2>
+                            </div>
+
+                            <div className="stat-card">
+                                <p className="stat-label">Speso finora</p>
+                                <h2>{formatAmount(forecast.budgetAnalysis.spent)}</h2>
+                            </div>
+
+                            <div className="stat-card">
+                                <p className="stat-label">Residuo</p>
+                                <h2>{formatAmount(forecast.budgetAnalysis.remaining)}</h2>
+                            </div>
+
+                            <div className="stat-card">
+                                <p className="stat-label">Previsto a fine mese</p>
+                                <h2>{formatAmount(forecast.budgetAnalysis.projectedTotalExpenses)}</h2>
+                            </div>
+                        </div>
+
+                        <div className="progress-bar budget-progress" style={{ marginTop: 16 }}>
+                            <div
+                                className="progress-fill"
+                                style={{
+                                    width: `${Math.min(forecast.budgetAnalysis.projectedUtilizationPct ?? 0, 100)}%`
+                                }}
+                            />
+                        </div>
+
+                        <p className="stat-caption budget-caption" style={{ marginTop: 10 }}>
+                            Utilizzo previsto: {forecast.budgetAnalysis.projectedUtilizationPct ?? 0}% ·
+                            Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
+                        </p>
                     </div>
-                </div>
-            )}
+                )}
 
-            <div className="dashboard-card form-card">
-                <div className="card-header">
-                    <h3>Imposta budget</h3>
-                    <span>Definisci il limite mensile e le soglie</span>
-                </div>
+                {forecast.categoryBudgetAnalysis?.length > 0 && (
+                    <div className="dashboard-card budget-card">
+                        <div className="card-header card-header--stacked">
+                            <div className="card-header-text">
+                                <h3>Budget per categoria</h3>
+                                <p className="forecast-subtitle">
+                                    Confronto tra limite, speso e previsione
+                                </p>
+                            </div>
+                        </div>
 
-                <BudgetForm
-                    onBudgetSaved={() => loadDashboard(selectedPeriod, selectedCategory)}
-                    availableCategories={budgetCategories}
-                />
+                        <div className="category-list">
+                            {forecast.categoryBudgetAnalysis.map((item) => (
+                                <div key={item.category} className="category-item">
+                                    <div className="category-top">
+                                        <span>{getCategoryLabel(item.category)}</span>
+                                        <span>{formatAmount(item.total)} / {formatAmount(item.limit)}</span>
+                                    </div>
+
+                                    <div className="progress-bar">
+                                        <div
+                                            className="progress-fill"
+                                            style={{ width: `${Math.min(item.usagePercent ?? 0, 100)}%` }}
+                                        />
+                                    </div>
+
+                                    <div className="progress-meta">
+                                        <span>Speso: {formatAmount(item.spent)}</span>
+                                        <span>Previsto: {formatAmount(item.projected)}</span>
+                                        <span>
+                                {item.status === 'over'
+                                    ? 'Superato'
+                                    : item.status === 'critical'
+                                        ? 'Critico'
+                                        : item.status === 'warning'
+                                            ? 'Attenzione'
+                                            : 'Ok'}
+                            </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="dashboard-card form-card">
+                    <div className="card-header card-header--stacked">
+                        <div className="card-header-text">
+                            <h3>Imposta budget</h3>
+                            <p className="forecast-subtitle">
+                                Definisci il limite mensile e le soglie
+                            </p>
+                        </div>
+                    </div>
+
+                    <BudgetForm
+                        onBudgetSaved={() => loadDashboard(selectedPeriod, selectedCategory)}
+                        availableCategories={budgetCategories}
+                    />
+                </div>
             </div>
 
             <div className="dashboard-card forecast-card">

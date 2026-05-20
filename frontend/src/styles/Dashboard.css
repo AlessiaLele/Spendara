@@ -797,6 +797,53 @@ tbody tr:hover {
     border-left: 5px solid #22c55e;
 }
 
+.budget-card--monthly {
+    padding: 22px;
+}
+
+.budget-card--monthly .card-header {
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.budget-card--monthly .forecast-badge {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.budget-monthly-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.budget-card--monthly .stat-card {
+    min-height: 96px;
+    padding: 16px;
+}
+
+.budget-card--monthly .stat-label {
+    font-size: 13px;
+    line-height: 1.25;
+    margin-bottom: 8px;
+}
+
+.budget-card--monthly .stat-card h2 {
+    font-size: 22px;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.budget-card--monthly .budget-progress {
+    height: 14px;
+}
+
+.budget-card--monthly .budget-caption {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
 .budget-status-row {
     display: flex;
     align-items: center;
@@ -816,6 +863,25 @@ tbody tr:hover {
     justify-content: space-between;
     margin-bottom: 10px;
     font-weight: 600;
+}
+
+.budget-panels-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin: 24px 0;
+    align-items: stretch;
+}
+
+.budget-panels-grid > .dashboard-card {
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.budget-panels-grid .budget-card,
+.budget-panels-grid .form-card {
+    margin-top: 0;
 }
 
 .full-width {
@@ -928,7 +994,8 @@ tbody tr:hover {
     .dashboard-main-grid-70-30,
     .forecast-recurring-grid,
     .category-chart-layout,
-    .compact-category-layout {
+    .compact-category-layout,
+    .budget-panels-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -986,4 +1053,36 @@ tbody tr:hover {
     .chart-container {
         height: 260px;
     }
+}
+
+@media (max-width: 700px) {
+    .budget-monthly-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.card-header--stacked {
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.card-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.card-header-text h3 {
+    margin: 0;
+}
+
+.card-header-text .forecast-subtitle {
+    margin: 0;
+    line-height: 1.35;
+}
+
+.card-header--stacked .forecast-badge {
+    flex-shrink: 0;
 }
