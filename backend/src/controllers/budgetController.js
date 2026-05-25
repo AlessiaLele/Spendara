@@ -86,7 +86,6 @@ async function upsertMonthlyBudget(req, res) {
 
         const warningThreshold = Number(warningThresholdRaw);
         const criticalThreshold = Number(criticalThresholdRaw);
-        const carryOverEnabled = parseBoolean(req.body.carryOverEnabled);
 
         if (!Number.isFinite(amount) || amount < 0) {
             return res.status(400).json({ message: 'Importo budget non valido' });
@@ -117,7 +116,6 @@ async function upsertMonthlyBudget(req, res) {
                 categoryBudgets: [],
                 warningThreshold,
                 criticalThreshold,
-                carryOverEnabled
             });
         }
 
@@ -164,7 +162,6 @@ async function upsertMonthlyBudget(req, res) {
 
         budget.warningThreshold = warningThreshold;
         budget.criticalThreshold = criticalThreshold;
-        budget.carryOverEnabled = carryOverEnabled;
 
         await budget.save();
 

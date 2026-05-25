@@ -13,7 +13,6 @@ const budgetSchema = new mongoose.Schema({
     categoryBudgets: { type: [categoryBudgetSchema], default: [] },
     warningThreshold: { type: Number, default: 0.8, min: 0, max: 1 },
     criticalThreshold: { type: Number, default: 0.95, min: 0, max: 1 },
-    carryOverEnabled: { type: Boolean, default: false }
 }, { timestamps: true });
 budgetSchema.index({ userId: 1, month: 1, year: 1 }, { unique: true });
 
