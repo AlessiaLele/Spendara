@@ -130,6 +130,34 @@ function DashboardPage() {
         }
     };
 
+    const handleDeleteBudget = async (category = null) => {
+        const conferma = window.confirm(
+            category
+                ? `Eliminare il budget per "${getCategoryLabel(category)}"?`
+                : 'Eliminare il budget mensile totale?'
+        );
+        if (!conferma) return;
+
+        const token = localStorage.getItem('token');
+        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';  // ← aggiunto
+        const params = new URLSearchParams({
+            month: new Date().getMonth(),
+            year: new Date().getFullYear(),
+            ...(category ? { category } : {})
+        });
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/budgets?${params}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Errore durante l\'eliminazione');
+            loadDashboard(selectedPeriod, selectedCategory);
+        } catch (err) {
+            alert(err.message);
+        }
+    };
+
     useEffect(() => {
         loadDashboard(selectedPeriod, selectedCategory);
     }, [selectedPeriod, selectedCategory]);
@@ -461,14 +489,15 @@ function DashboardPage() {
                                     className={`category-item category-item--${item.status}`}
                                 >
                                     <div className="category-top">
-        <span className="category-name">
-            {item.status === 'over' && <span className="category-icon">🔴</span>}
-            {item.status === 'critical' && <span className="category-icon">🟠</span>}
-            {item.status === 'warning' && <span className="category-icon">🟡</span>}
-            {item.status === 'ok' && <span className="category-icon">🟢</span>}
-            {getCategoryLabel(item.category)}
-        </span>
-                                        <span className={`category-badge category-badge--${item.status}`}>
+    <span className="category-name">
+        {item.status === 'over' && <span className="category-icon">🔴</span>}
+        {item.status === 'critical' && <span className="category-icon">🟠</span>}
+        {item.status === 'warning' && <span className="category-icon">🟡</span>}
+        {item.status === 'ok' && <span className="category-icon">🟢</span>}
+        {getCategoryLabel(item.category)}
+    </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className={`category-badge category-badge--${item.status}`}>
             {item.status === 'over'
                 ? '🚨 Superato'
                 : item.status === 'critical'
@@ -477,6 +506,26 @@ function DashboardPage() {
                         ? '⚡ Attenzione'
                         : '✓ Ok'}
         </span>
+                                            <button
+                                                onClick={() => handleDeleteBudget(item.category)}
+                                                title="Elimina budget"
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    color: '#9ca3af',
+                                                    fontSize: 16,
+                                                    lineHeight: 1,
+                                                    padding: '2px 4px',
+                                                    borderRadius: 6,
+                                                    transition: 'color 0.15s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                                                onMouseLeave={e => e.currentTarget.style.color = '#9ca3af'}
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="progress-bar">

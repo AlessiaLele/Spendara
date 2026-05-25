@@ -10,24 +10,16 @@ export default function BudgetForm({
     const [category, setCategory] = useState('all');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-    const [warningThreshold, setWarningThreshold] = useState('0.8');
-    const [criticalThreshold, setCriticalThreshold] = useState('0.95');
+    const [isError, setIsError] = useState(false);
+
     const currentDate = useMemo(() => new Date(), []);
     const month = currentDate.getMonth();
     const year = currentDate.getFullYear();
 
     const budgetCategories = useMemo(() => {
         const nonBudgetable = new Set([
-            'stipendio',
-            'salary',
-            'entrate',
-            'income',
-            'rimborso',
-            'refund',
-            'altre entrate',
-            'cashback',
-            'bonus'
+            'stipendio', 'salary', 'entrate', 'income',
+            'rimborso', 'refund', 'altre entrate', 'cashback', 'bonus'
         ]);
         return (availableCategories || []).filter((cat) => {
             const normalized = String(cat).trim().toLowerCase();
@@ -35,26 +27,41 @@ export default function BudgetForm({
         });
     }, [availableCategories]);
 
+    const handleAmountChange = (e) => {
+        const rawValue = e.target.value.replace(/\s/g, '').replace(',', '.');
+        if (rawValue === '' || /^\d+(\.\d{0,2})?$/.test(rawValue)) {
+            setAmount(rawValue);
+        }
+    };
+
+    const handleAmountBlur = () => {
+        if (!amount) return;
+        const numericValue = Number(amount);
+        if (!Number.isFinite(numericValue) || numericValue <= 0) return;
+        setAmount(numericValue.toFixed(2));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         const token = localStorage.getItem('token');
         if (!token) {
-            setError('Token mancante. Effettua il login.');
+            setIsError(true);
+            setMessage('Token mancante. Effettua il login.');
             return;
         }
 
         const numericAmount = Number(amount);
-
-        if (!Number.isFinite(numericAmount) || numericAmount < 0) {
-            setError('Inserisci un importo valido.');
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+            setIsError(true);
+            setMessage('Inserisci un importo valido maggiore di 0.');
             return;
         }
 
         try {
             setLoading(true);
-            setError('');
             setMessage('');
+            setIsError(false);
 
             const response = await fetch(`${API_BASE_URL}/api/budgets`, {
                 method: 'POST',
@@ -67,23 +74,20 @@ export default function BudgetForm({
                     category,
                     month,
                     year,
-                    warningThreshold: Number(warningThreshold),
-                    criticalThreshold: Number(criticalThreshold),
+                    warningThreshold: 0.8,
+                    criticalThreshold: 0.95,
                 })
             });
 
             const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Errore nel salvataggio del budget');
-            }
+            if (!response.ok) throw new Error(data.message || 'Errore nel salvataggio del budget');
 
             setMessage(
                 category === 'all'
                     ? 'Budget su tutte le categorie salvato con successo.'
-                    : `Budget per ${category} salvato con successo.`
+                    : `Budget per "${category}" salvato con successo.`
             );
-
+            setIsError(false);
             setAmount('');
             setCategory('all');
 
@@ -91,54 +95,64 @@ export default function BudgetForm({
                 onBudgetSaved(data.budget);
             }
         } catch (err) {
-            setError(err.message || 'Errore nel salvataggio del budget');
+            setIsError(true);
+            setMessage(err.message || 'Errore nel salvataggio del budget.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <form className="cash-transaction-form" onSubmit={handleSubmit}>
-            <div className="cash-transaction-field">
-                <label htmlFor="budget-amount">Importo</label>
+        <form className="transaction-form" onSubmit={handleSubmit}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                    Importo mensile
+                </label>
                 <div className="currency-input-wrapper">
                     <span className="currency-symbol">€</span>
                     <input
-                        id="budget-amount"
                         className="currency-input"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Importo"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        onChange={handleAmountChange}
+                        onBlur={handleAmountBlur}
                         required
                     />
                 </div>
             </div>
 
-            <div className="cash-transaction-field">
-                <label htmlFor="budget-category">Categoria</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                    Categoria
+                </label>
                 <select
-                    id="budget-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                 >
                     <option value="all">Tutte le categorie</option>
                     {budgetCategories.map((cat) => (
-                        <option key={cat} value={cat}>
-                            {cat}
-                        </option>
+                        <option key={cat} value={cat}>{cat}</option>
                     ))}
                 </select>
             </div>
 
-            <button type="submit" className="cash-transaction-button" disabled={loading}>
+            <button
+                type="submit"
+                className="primary-action-btn"
+                disabled={loading}
+                style={{ marginTop: 4 }}
+            >
                 {loading ? 'Salvataggio...' : 'Salva budget'}
             </button>
 
-            {message && <div className="cash-transaction-message">{message}</div>}
-            {error && <div className="cash-transaction-message" style={{ color: '#b91c1c' }}>{error}</div>}
+            {message && (
+                <p className={`form-message ${isError ? 'amount-expense' : 'amount-income'}`}>
+                    {message}
+                </p>
+            )}
         </form>
     );
 }

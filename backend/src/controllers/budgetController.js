@@ -187,8 +187,39 @@ async function upsertMonthlyBudget(req, res) {
     }
 }
 
+async function deleteBudget(req, res) {
+    try {
+        const userId = req.user._id;
+        const { month, year } = parseMonthYear(req.query);
+        const category = req.query.category;
+
+        const budget = await Budget.findOne({ userId, month, year });
+
+        if (!budget) {
+            return res.status(404).json({ message: 'Budget non trovato' });
+        }
+
+        if (category && !isGlobalCategory(category)) {
+            const normalizedCategory = normalizeCategory(category).toLowerCase();
+            budget.categoryBudgets = (budget.categoryBudgets || []).filter(
+                (item) => normalizeCategory(item.category ?? item.name).toLowerCase() !== normalizedCategory
+            );
+            await budget.save();
+            return res.json({ message: `Budget per "${category}" eliminato`, budget });
+        }
+
+        budget.totalBudget = 0;
+        await budget.save();
+        return res.json({ message: 'Budget mensile eliminato', budget });
+
+    } catch (error) {
+        return res.status(400).json({ message: error.message });
+    }
+}
+
 module.exports = {
     getBudgetByMonth,
     getBudgetHistory,
-    upsertMonthlyBudget
+    upsertMonthlyBudget,
+    deleteBudget
 };

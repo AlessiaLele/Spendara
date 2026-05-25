@@ -663,63 +663,12 @@ tbody tr:hover {
     padding-left: 36px !important;
 }
 
-.budget-box {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.budget-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-}
-
-.budget-pill {
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    padding: 14px;
-}
-
-.budget-pill p {
-    margin: 0 0 6px;
-    font-size: 13px;
-    color: #6b7280;
-}
-
-.budget-pill strong {
-    color: #111827;
-    font-size: 18px;
-}
-
-.budget-progress-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-    color: #374151;
-    font-size: 14px;
-    font-weight: 600;
-}
 
 .budget-progress {
     height: 12px;
     background: #e5e7eb;
     border-radius: 999px;
     overflow: hidden;
-}
-
-.budget-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
-    border-radius: 999px;
-    transition: width 0.3s ease;
-}
-
-.budget-form-card {
-    min-height: 360px;
 }
 
 .badge {
@@ -768,10 +717,6 @@ tbody tr:hover {
 
 .budget-card .progress-bar {
     height: 12px;
-}
-
-.budget-card:hover {
-    transform: translateY(-2px);
 }
 
 .budget-card p {
@@ -844,27 +789,6 @@ tbody tr:hover {
     line-height: 1.4;
 }
 
-.budget-status-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-}
-
-.budget-progress-box {
-    background: #f9fafb;
-    border-radius: 14px;
-    padding: 16px;
-    border: 1px solid #e5e7eb;
-}
-
-.budget-progress-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-    font-weight: 600;
-}
-
 .budget-panels-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -892,71 +816,6 @@ tbody tr:hover {
     display: flex;
     flex-direction: column;
     gap: 20px;
-}
-
-.cash-transaction-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 22px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
-}
-
-.cash-transaction-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 16px;
-}
-
-.cash-transaction-form {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.cash-transaction-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.cash-transaction-field label {
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.cash-transaction-field input,
-.cash-transaction-field select {
-    border: 1px solid #d9d9d9;
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 14px;
-    outline: none;
-}
-
-.cash-transaction-field input:focus,
-.cash-transaction-field select:focus {
-    border-color: #111827;
-}
-
-.cash-transaction-button {
-    border: none;
-    border-radius: 10px;
-    padding: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    background: #111827;
-    color: white;
-    transition: 0.2s;
-}
-
-.cash-transaction-button:hover {
-    opacity: 0.92;
-}
-
-.cash-transaction-message {
-    font-size: 13px;
-    margin-top: 4px;
 }
 
 .dashboard-main-grid-70-30 > .large-card,
