@@ -101,7 +101,8 @@ function generateThreeDailyTransactions(userId, date, accountId = 'demo-account'
     const baseDate = new Date(date);
     baseDate.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 3; i++) {
+    const count = Math.floor(Math.random() * 4) + 1;
+    for (let i = 0; i < count; i++) {
         const txDate = new Date(baseDate);
         txDate.setHours(8 + Math.floor(Math.random() * 12));
         txDate.setMinutes(Math.floor(Math.random() * 60));
@@ -128,7 +129,8 @@ function generateMissingDailyTransactions(userId, startDate, endDate, accountId 
         const baseDate = new Date(current);
         baseDate.setHours(0, 0, 0, 0);
 
-        for (let i = 0; i < 3; i++) {
+        const count = Math.floor(Math.random() * 4) + 1;
+        for (let i = 0; i < count; i++) {
             const txDate = new Date(baseDate);
             txDate.setHours(8 + Math.floor(Math.random() * 12));
             txDate.setMinutes(Math.floor(Math.random() * 60));
