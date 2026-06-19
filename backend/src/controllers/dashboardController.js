@@ -36,10 +36,13 @@ function getPeriodBounds(period) {
         default: {
             const year = now.getFullYear();
             const month = now.getMonth();
+            const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
             return {
                 start: new Date(year, month, 1, 0, 0, 0, 0),
-                end: new Date(year, month + 1, 0, 23, 59, 59, 999)
+                // niente transazioni "future" entro il mese: il riepilogo deve riflettere
+                // la situazione ad oggi, in linea con budgetAnalysis.spent (forecastService)
+                end: now < monthEnd ? now : monthEnd
             };
         }
     }

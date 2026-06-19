@@ -465,7 +465,7 @@ function DashboardPage() {
 
                         <p className="stat-caption budget-caption" style={{ marginTop: 10 }}>
                             Speso: {forecast.budgetAnalysis.spentUtilizationPct ?? 0}% del budget ·
-                            Residuo: {Math.max(0, 100 - (forecast.budgetAnalysis.spentUtilizationPct ?? 0)).toFixed(1)}% ·
+                            Residuo: {Math.max(0, 100 - (forecast.budgetAnalysis.spentUtilizationPct ?? 0)).toFixed(2)}% ·
                             Varianza: {formatAmount(forecast.budgetAnalysis.variance)}
                         </p>
                     </div>

@@ -761,7 +761,12 @@ async function buildMonthlyForecast(allTransactions, userId) {
     let scheduledSalaryItem = null;
 
     if (user?.salaryAmount > 0) {
-        const salaryDay = user.salaryDay || 10;
+        const requestedSalaryDay = user.salaryDay || 10;
+
+        // Clamp sull'ultimo giorno del mese corrente: evita che, ad es.,
+        // un salaryDay=31 in un mese da 30 giorni trabocchi nel mese successivo.
+        const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const salaryDay = Math.min(requestedSalaryDay, daysInCurrentMonth);
 
         const salaryDate = new Date(
             now.getFullYear(),
@@ -893,12 +898,16 @@ async function buildMonthlyForecast(allTransactions, userId) {
                     remainingRecurringExpenses +
                     variableForecast.projectedVariableExpenses;
 
+                // status basato sullo speso reale: in questa card (Budget per categoria)
+                // spent/limit/usagePercent sono tutti reali, quindi anche il badge deve esserlo
+                // per non contraddire i numeri mostrati. Il dato previsionale resta disponibile
+                // in budgetAnalysis (card "Budget mensile" → Previsto a fine mese).
                 const allItem = {
                     category: 'all',
                     limit: totalBudget,
                     spent: Number(currentExpenses.toFixed(2)),
                     projected: Number((totalProjectedExpenses - currentExpenses).toFixed(2)),
-                    total: Number(currentExpenses.toFixed(2)), // importo realmente speso
+                    total: Number(currentExpenses.toFixed(2)),
                     remaining: Number((totalBudget - currentExpenses).toFixed(2)),
                     usagePercent: Number(((currentExpenses / totalBudget) * 100).toFixed(2)),
                     isOverBudget: currentExpenses > totalBudget,
