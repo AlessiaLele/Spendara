@@ -575,15 +575,18 @@ function calculateBacktestMetrics(allTransactions) {
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const firstDate = new Date(sorted[0].date);
     const today = new Date();
-
-    const monthCursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
     const candidateMonths = [];
 
-    while (monthCursor < today) {
-        candidateMonths.push(new Date(monthCursor));
-        monthCursor.setMonth(monthCursor.getMonth() + 1);
+// ultimi 6 mesi COMPLETI precedenti al mese corrente
+    for (let i = 6; i >= 1; i--) {
+        candidateMonths.push(
+            new Date(
+                today.getFullYear(),
+                today.getMonth() - i,
+                1
+            )
+        );
     }
 
     const samples = [];
