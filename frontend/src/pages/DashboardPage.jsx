@@ -778,26 +778,39 @@ function DashboardPage() {
                         </div>
                     ) : (
                         <div className="category-list">
-                            {forecast.categoryForecast.slice(0, 8).map((item) => (
-                                <div key={item.category} className="category-item">
-                                    <div className="category-top">
-                                        <span>{item.category}</span>
-                                        <span>{formatAmount(item.projectedExpense)}</span>
-                                    </div>
+                            {forecast.categoryForecast.slice(0, 8).map((item) => {
+                                const sharePercent = Math.round((item.historicalShare ?? 0) * 100);
 
-                                    <div className="progress-bar">
-                                        <div
-                                            className="progress-fill"
-                                            style={{ width: `${Math.min((item.spent / item.limit) * 100 || 0, 100)}%` }}
-                                        />
-                                    </div>
+                                return (
+                                    <div key={item.category} className="category-item">
+                                        <div className="category-top">
+                                            <span>{item.category}</span>
+                                            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                    Previsto (rimanente mese)
+                                </span>
+                                                {formatAmount(item.projectedExpense)}
+                            </span>
+                                        </div>
 
-                                    <div className="progress-meta">
-                                        <span>Peso storico: {(item.historicalShare * 100).toFixed(1)}%</span>
-                                        <span>Quota prevista sul totale variabile</span>
+                                        <div className="progress-bar">
+                                            <div
+                                                className="progress-fill"
+                                                style={{ width: `${Math.min(sharePercent, 100)}%` }}
+                                            />
+                                        </div>
+
+                                        <div className="progress-meta">
+                            <span>
+                                <strong style={{ color: '#111827', fontSize: '15px' }}>
+                                    {formatAmount(item.spent)}
+                                </strong>
+                            </span>
+                                            <span style={{ fontWeight: 600, color: '#374151' }}>{sharePercent}%</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>

@@ -417,7 +417,8 @@ function buildCategoryForecast(
             return {
                 category,
                 historicalShare: Number(share.toFixed(4)),
-                projectedExpense: Number((projectedTotal * share).toFixed(2))
+                projectedExpense: Number((projectedTotal * share).toFixed(2)),
+                spent: Number(value.toFixed(2))
             };
         })
         .sort((a, b) => b.projectedExpense - a.projectedExpense);
