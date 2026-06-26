@@ -3,7 +3,8 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const {
     generateThreeDailyTransactions,
-    generateMissingDailyTransactions
+    generateMissingDailyTransactions,
+    generateMonthlySalaryTransaction
 } = require('../services/transactionService');
 
 function normalize(date) {
@@ -18,6 +19,24 @@ async function runDailyTransactionsJob() {
     for (const user of users) {
         try {
             const today = normalize(new Date());
+
+            if (today.getDate() >= 10) {
+                const salaryId =
+                    `salary-${user._id}-${today.getFullYear()}-${today.getMonth() + 1}`;
+
+                await Transaction.updateOne(
+                    {
+                        userId: user._id,
+                        externalTransactionId: salaryId
+                    },
+                    {
+                        $setOnInsert: generateMonthlySalaryTransaction(user._id, today)
+                    },
+                    {
+                        upsert: true
+                    }
+                );
+            }
 
             const lastDate = user.lastSimulatedBatchDate
                 ? normalize(user.lastSimulatedBatchDate)

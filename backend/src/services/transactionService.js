@@ -150,10 +150,27 @@ function generateMissingDailyTransactions(userId, startDate, endDate, accountId 
     return transactions;
 }
 
+function generateMonthlySalaryTransaction(userId, date) {
+    const txDate = new Date(date);
+
+    return {
+        userId,
+        accountId: null,
+        amount: 10000,
+        currencyCode: 'EUR',
+        description: 'Stipendio mensile',
+        date: txDate,
+        category: 'stipendio',
+        source: 'bank',
+        externalTransactionId: `salary-${userId}-${date.getFullYear()}-${date.getMonth() + 1}`
+    };
+}
+
 module.exports = {
     isDemoMode,
     generateTransaction,
     generateHistoricalTransactions,
     generateThreeDailyTransactions,
-    generateMissingDailyTransactions
+    generateMissingDailyTransactions,
+    generateMonthlySalaryTransaction
 };
