@@ -20,7 +20,7 @@ async function runDailyTransactionsJob() {
         try {
             const today = normalize(new Date());
 
-            if (today.getDate() >= 10) {
+            if (today.getDate() >= 26) {
                 const salaryId =
                     `salary-${user._id}-${today.getFullYear()}-${today.getMonth() + 1}`;
 
