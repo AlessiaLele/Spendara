@@ -5,6 +5,12 @@ const User = require("../models/User");
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+function diffInDays(a, b) {
+    const start = new Date(a); start.setHours(0, 0, 0, 0);
+    const end = new Date(b);   end.setHours(0, 0, 0, 0);
+    return Math.abs(start.getTime() - end.getTime()) / DAY_MS;
+}
+
 function startOfDay(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);

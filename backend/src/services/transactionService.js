@@ -67,6 +67,48 @@ function generateTransaction(userId, date, accountId = 'demo-account', options =
     };
 }
 
+// Transazioni ricorrenti mensili fisse (per far funzionare il rilevamento ricorrenze)
+const MOCK_RECURRING = [
+    { description: 'Netflix', category: 'intrattenimento', amount: -15.99 },
+    { description: 'Spotify', category: 'intrattenimento', amount: -9.99 },
+    { description: 'Affitto', category: 'bollette', amount: -650.00 },
+    { description: 'Enel Energia', category: 'bollette', amount: -85.00 },
+    { description: 'Palestra FitClub', category: 'salute', amount: -49.00 },
+];
+
+function generateRecurringTransactions(userId, days = 90, accountId = 'demo-account') {
+    const transactions = [];
+    const now = new Date();
+
+    for (const recurring of MOCK_RECURRING) {
+        // Calcola quante occorrenze mensili entrano nella finestra storica
+        const monthsBack = Math.floor(days / 30);
+
+        for (let i = monthsBack; i >= 0; i--) {
+            const txDate = new Date(now);
+            txDate.setDate(txDate.getDate() - (i * 30));
+            txDate.setHours(10, 0, 0, 0);
+
+            // Rimane dentro la finestra storica
+            if (diffInDays(now, txDate) > days) continue;
+
+            transactions.push({
+                userId,
+                accountId,
+                amount: recurring.amount,
+                currencyCode: 'EUR',
+                description: recurring.description,
+                date: txDate,
+                category: recurring.category,
+                source: 'bank',
+                externalTransactionId: `recurring-${userId}-${recurring.description.toLowerCase().replace(/\s/g, '-')}-${txDate.getFullYear()}-${txDate.getMonth()}`
+            });
+        }
+    }
+
+    return transactions;
+}
+
 function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-account') {
     const transactions = [];
 
@@ -91,7 +133,7 @@ function generateHistoricalTransactions(userId, days = 90, accountId = 'demo-acc
             );
         }
     }
-
+    transactions.push(...generateRecurringTransactions(userId, days, accountId));
     return transactions;
 }
 

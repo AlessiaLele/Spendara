@@ -228,9 +228,10 @@
 }
 
 .forecast-badge.over {
-    background: #fee2e2;
+    background: #fef2f2;
     color: #991b1b;
     border-color: #fecaca;
+    animation: pulse-red 1.5s ease-in-out infinite;
 }
 
 .forecast-badge.none {

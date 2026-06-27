@@ -412,7 +412,7 @@ function DashboardPage() {
                             <span
                                 className={`forecast-badge ${
                                     forecast.budgetAnalysis.spendingStatus === 'over'
-                                        ? 'error'
+                                        ? 'over'
                                         : forecast.budgetAnalysis.spendingStatus === 'full'
                                             ? 'warning'
                                             : forecast.budgetAnalysis.spendingStatus === 'partial'

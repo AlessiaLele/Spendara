@@ -4,7 +4,8 @@ const Transaction = require('../models/Transaction');
 const {
     generateThreeDailyTransactions,
     generateMissingDailyTransactions,
-    generateMonthlySalaryTransaction
+    generateMonthlySalaryTransaction,
+    generateHistoricalTransactions
 } = require('../services/transactionService');
 
 function normalize(date) {
@@ -45,12 +46,25 @@ async function runDailyTransactionsJob() {
             let newTransactions = [];
 
             if (!lastDate) {
+                // ✅ Prima volta: popola storico 90 giorni + transazioni di oggi
+                const historicalTransactions = generateHistoricalTransactions(
+                    user._id,
+                    90,
+                    'demo-account'
+                );
+
+                if (historicalTransactions.length > 0) {
+                    await Transaction.insertMany(historicalTransactions, { ordered: false });
+                }
+
+                // Genera anche le transazioni di oggi
                 newTransactions = generateThreeDailyTransactions(
                     user._id,
                     today,
                     'demo-account'
                 );
             } else if (lastDate < today) {
+                // giorni mancanti — invariato
                 newTransactions = generateMissingDailyTransactions(
                     user._id,
                     lastDate,
@@ -58,7 +72,6 @@ async function runDailyTransactionsJob() {
                     'demo-account'
                 );
             }
-
             if (newTransactions.length > 0) {
                 await Transaction.insertMany(newTransactions);
             }
