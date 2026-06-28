@@ -181,11 +181,13 @@ function generateMockTransactions({ accountIds = ['demo-account-1'], from, to } 
     const expenseTemplates = [
         { description: 'Supermercato Conad', category: 'Groceries', min: -120, max: -15 },
         { description: 'Carburante Q8', category: 'Transport', min: -90, max: -20 },
-        { description: 'Bar Centrale', category: 'Food', min: -18, max: -2.5 },
+        { description: 'Bar Centrale', category: 'Ristoranti', min: -18, max: -2.5 },
         { description: 'Amazon', category: 'Shopping', min: -180, max: -8 },
-        { description: 'Farmacia', category: 'Health', min: -45, max: -6 }
+        { description: 'Farmacia', category: 'Health', min: -45, max: -6 },
+        { description: 'Enel Energia', category: 'Bills', min: -150, max: -40 },
+        { description: 'Visita Medica', category: 'Health', min: -80, max: -20 },
+        { description: 'Ikea', category: 'Casa', min: -200, max: -30 },
     ];
-
     const incomeTemplates = [
         { description: 'Stipendio', category: 'Salary', min: 1200, max: 2800 },
         { description: 'Rimborso', category: 'Rimborso', min: 20, max: 180 }

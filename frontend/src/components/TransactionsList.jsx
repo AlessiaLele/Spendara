@@ -63,7 +63,7 @@ function TransactionsList({
                                     <div className="table-actions">
                                         <button
                                             type="button"
-                                            className="edit-action-btn"
+                                            className="edit-action edit"
                                             onClick={() => onEditTransaction(transaction)}
                                         >
                                             Modifica
@@ -71,7 +71,7 @@ function TransactionsList({
 
                                         <button
                                             type="button"
-                                            className="delete-action-btn"
+                                            className="delete-action delete"
                                             onClick={() => onDeleteTransaction(transaction._id)}
                                         >
                                             Elimina

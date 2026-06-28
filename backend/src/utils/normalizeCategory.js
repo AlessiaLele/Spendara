@@ -13,6 +13,14 @@ function normalizeCategory(category) {
         alimentari: 'Spesa',
         spesa: 'Spesa',
         supermercato: 'Spesa',
+        cibo: 'Spesa',
+
+        ristoranti: 'Ristoranti',
+        ristorante: 'Ristoranti',
+        restaurant: 'Ristoranti',
+        restaurants: 'Ristoranti',
+        dining: 'Ristoranti',
+        bar: 'Ristoranti',
 
         bills: 'Bollette',
         bollette: 'Bollette',
