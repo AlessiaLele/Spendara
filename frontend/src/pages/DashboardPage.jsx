@@ -477,7 +477,7 @@ function DashboardPage() {
                             <div className="card-header-text">
                                 <h3>Budget per categoria</h3>
                                 <p className="forecast-subtitle">
-                                    Confronto tra limite, speso e previsione
+                                    Confronto tra limite e importo speso
                                 </p>
                             </div>
                         </div>
@@ -553,10 +553,7 @@ function DashboardPage() {
                 <div className="dashboard-card form-card">
                     <div className="card-header card-header--stacked">
                         <div className="card-header-text">
-                            <h3>Imposta budget</h3>
-                            <p className="forecast-subtitle">
-                                Definisci il limite mensile e le soglie
-                            </p>
+                            <h3>Imposta budget mensile</h3>
                         </div>
                     </div>
 
@@ -820,7 +817,6 @@ function DashboardPage() {
                 <div className="dashboard-card large-card">
                     <div className="card-header">
                         <h3>Spese per categoria</h3>
-                        <span>Distribuzione nel periodo selezionato</span>
                     </div>
 
                     {pieData.length === 0 ? (
