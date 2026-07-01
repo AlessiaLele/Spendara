@@ -807,6 +807,7 @@ async function buildMonthlyForecast(allTransactions, userId) {
     }
 
     const recurringSeries = detectRecurringTransactions(allTransactions, now, monthEnd);
+    console.log("Ricorrenze trovate:", recurringSeries);
 
     const remainingRecurringIncomeItems = recurringSeries
         .filter(item => item.direction === 'income' && item.isFutureInCurrentMonth)

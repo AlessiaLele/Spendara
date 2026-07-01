@@ -588,16 +588,6 @@ function DashboardPage() {
 
                     <div className="category-item">
                         <div className="category-top">
-                            <span>Entrate ricorrenti rimanenti</span>
-                            <span>{formatAmount(forecast.remainingRecurringIncome)}</span>
-                        </div>
-                        <div className="progress-meta">
-                            <span>Eventi futuri rilevati: {forecast.recurringSummary.futureIncomeItems}</span>
-                        </div>
-                    </div>
-
-                    <div className="category-item">
-                        <div className="category-top">
                             <span>Uscite ricorrenti rimanenti</span>
                             <span>{formatAmount(forecast.remainingRecurringExpenses)}</span>
                         </div>
@@ -689,39 +679,6 @@ function DashboardPage() {
                                     <strong>
                                         {formatAmount(sample.predictedEndBalance)} / {formatAmount(sample.actualEndBalance)}
                                     </strong>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="dashboard-card large-card">
-                    <div className="card-header">
-                        <h3>Ricavi ricorrenti futuri</h3>
-                        <span>{forecast.recurringIncomeItems.length} rilevate</span>
-                    </div>
-
-                    {forecast.recurringIncomeItems.length === 0 ? (
-                        <div className="empty-state">
-                            Nessuna entrata ricorrente futura rilevata.
-                        </div>
-                    ) : (
-                        <div className="category-list">
-                            {forecast.recurringIncomeItems.map((item, index) => (
-                                <div
-                                    key={`${item.description}-${item.predictedDate}-${index}`}
-                                    className="category-item"
-                                >
-                                    <div className="category-top">
-                                        <span>{item.description}</span>
-                                        <span>{formatAmount(item.amount)}</span>
-                                    </div>
-                                    <div className="progress-meta">
-                                        <span>{item.category}</span>
-                                        <span>
-                                            Prevista il {new Date(item.predictedDate).toLocaleDateString('it-IT')}
-                                        </span>
-                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -911,17 +868,18 @@ function DashboardPage() {
                 </div>
             </div>
 
-            <div className="dashboard-card transactions-card">
-                <div className="card-header">
-                    <h3>Tutte le transazioni del periodo</h3>
-                    <span>Le transazioni cash possono essere modificate o eliminate</span>
-                </div>
+            <div className="transactions-section">
+                <div className="dashboard-card transactions-card">
+                    <div className="card-header">
+                        <h3>Tutte le transazioni del periodo</h3>
+                    </div>
 
-                <TransactionsList
-                    transactions={allTransactions}
-                    onEditTransaction={handleEditTransaction}
-                    onDeleteTransaction={handleDeleteTransaction}
-                />
+                    <TransactionsList
+                        transactions={allTransactions}
+                        onEditTransaction={handleEditTransaction}
+                        onDeleteTransaction={handleDeleteTransaction}
+                    />
+                </div>
             </div>
         </div>
     );
