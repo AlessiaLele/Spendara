@@ -564,14 +564,15 @@ function DashboardPage() {
                 </div>
             </div>
 
-            <div className="dashboard-card forecast-card">
-                <div className="card-header">
-                    <div>
-                        <h3>Motore previsionale</h3>
-                        <p className="forecast-subtitle">
+            <div className="dashboard-main-grid">
+                <div className="dashboard-card forecast-card">
+                    <div className="card-header">
+                        <div>
+                            <h3>Motore previsionale</h3>
+                            <p className="forecast-subtitle">
                             Stime basate sulle tue abitudini di spesa recenti
-                        </p>
-                    </div>
+                            </p>
+                        </div>
 
                     <span className={`forecast-badge ${forecast.confidence}`}>
                          Affidabilità {getConfidenceLabel(forecast.confidence)}
@@ -632,9 +633,8 @@ function DashboardPage() {
                 </div>
             </div>
 
-            <div className="dashboard-main-grid">
-                <div className="dashboard-card large-card">
-                    <div className="card-header">
+            <div className="dashboard-card" style={{ height: '100%' }}>
+                <div className="card-header">
                         <h3>Validazione del modello</h3>
                         <span>Errore medio e backtest storico</span>
                     </div>
@@ -852,7 +852,7 @@ function DashboardPage() {
 
                 <div className="dashboard-card form-card">
                     <div className="card-header">
-                        <h3>{editingTransaction ? 'Modifica spesa cash' : 'Aggiungi spesa cash'}</h3>
+                        <h3>{editingTransaction ? 'Modifica spesa in contanti' : 'Aggiungi spesa in contanti'}</h3>
                         <span>
                             {editingTransaction
                                 ? 'Aggiorna la transazione selezionata'
